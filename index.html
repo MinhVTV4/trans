@@ -196,12 +196,12 @@
             getFirestore, 
             collection, 
             addDoc,
-            query, // Thêm query
-            where, // Thêm where
-            orderBy, // Thêm orderBy
-            limit, // Thêm limit
-            getDocs, // Thêm getDocs
-            onSnapshot, // Thêm onSnapshot cho real-time (tùy chọn)
+            query, 
+            where, 
+            orderBy, 
+            limit, 
+            getDocs, 
+            onSnapshot, 
             serverTimestamp 
         } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
         import { 
@@ -435,22 +435,25 @@
 
             try {
                 const targetLang = 'Vietnamese'; 
-                const prompt = `Translate the following English text to ${targetLang}: "${textSegment}"`;
+                // Cải thiện prompt để yêu cầu bản dịch trực tiếp hơn
+                const prompt = `Provide a direct translation of the following English text to ${targetLang}, without explanations or additional context: "${textSegment}"`;
                 
+                console.log("Sending prompt to Gemini via Firebase AI Logic:", prompt);
                 const result = await generativeAIModel.generateContent(prompt);
                 const response = result.response;
                 const translatedText = response.text();
+                console.log("Received translation via Firebase AI Logic:", translatedText);
 
                 let tempTranslatingElement = document.getElementById(translatingMsgId);
 
                 if (translatedText) {
                     currentTranslatedForSave = (currentTranslatedForSave ? currentTranslatedForSave + " " : "") + translatedText;
                     if (tempTranslatingElement) {
-                        tempTranslatingElement.innerHTML = `<span class="text-sm font-semibold text-blue-600">${translatedText}</span>`;
+                        tempTranslatingElement.innerHTML = `<span class="text-sm font-semibold text-blue-600">${translatedText.trim()}</span>`; // Thêm trim() ở đây
                     } else { 
                         const lastP = translatedTextBox ? translatedTextBox.querySelector('p:last-child') : null;
-                        if(lastP) lastP.innerHTML += `<br/><span class="text-sm font-semibold text-blue-600">${translatedText}</span>`;
-                        else if (translatedTextBox) translatedTextBox.innerHTML += `<p><span class="text-sm font-semibold text-blue-600">${translatedText}</span></p>`;
+                        if(lastP) lastP.innerHTML += `<br/><span class="text-sm font-semibold text-blue-600">${translatedText.trim()}</span>`;
+                        else if (translatedTextBox) translatedTextBox.innerHTML += `<p><span class="text-sm font-semibold text-blue-600">${translatedText.trim()}</span></p>`;
                     }
                     if(auth.currentUser && saveTranslationButton) saveTranslationButton.style.display = 'inline-block';
                 } else {
@@ -515,7 +518,7 @@
             });
         }
         
-        let unsubscribeHistory = null; // Biến để lưu hàm hủy lắng nghe real-time
+        let unsubscribeHistory = null; 
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -527,7 +530,7 @@
                     saveTranslationButton.style.display = 'inline-block';
                 }
                 if (historyContainer) historyContainer.style.display = 'block';
-                loadTranslationHistory(user.uid); // Tải lịch sử khi đăng nhập
+                loadTranslationHistory(user.uid); 
             } else {
                 if (authForm) authForm.style.display = 'block';
                 if (userInfo) userInfo.style.display = 'none';
@@ -537,7 +540,7 @@
                 if (historyContainer) historyContainer.style.display = 'none';
                 if (translationHistoryDiv) translationHistoryDiv.innerHTML = '<p class="text-center text-gray-500 text-sm">Đăng nhập để xem lịch sử.</p>';
                 if (unsubscribeHistory) {
-                    unsubscribeHistory(); // Hủy lắng nghe khi đăng xuất
+                    unsubscribeHistory(); 
                     unsubscribeHistory = null;
                 }
             }
@@ -578,24 +581,21 @@
             translationHistoryDiv.innerHTML = '<p class="text-center text-gray-500 text-sm">Đang tải lịch sử...</p>';
 
             const translationsRef = collection(db, "translations");
-            // Tạo query để lấy các bản dịch của userId hiện tại, sắp xếp theo thời gian tạo mới nhất, giới hạn 10 bản ghi
             const q = query(translationsRef, 
                             where("userId", "==", userId), 
                             orderBy("createdAt", "desc"), 
                             limit(10));
             
-            // Hủy lắng nghe cũ nếu có
             if (unsubscribeHistory) {
                 unsubscribeHistory();
             }
 
-            // Lắng nghe thay đổi thời gian thực
             unsubscribeHistory = onSnapshot(q, (querySnapshot) => {
                 if (querySnapshot.empty) {
                     translationHistoryDiv.innerHTML = '<p class="text-center text-gray-500 text-sm">Chưa có lịch sử nào.</p>';
                     return;
                 }
-                translationHistoryDiv.innerHTML = ''; // Xóa nội dung cũ
+                translationHistoryDiv.innerHTML = ''; 
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
                     const historyItem = document.createElement('div');
