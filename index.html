@@ -358,17 +358,27 @@
                 return;
             }
             isProcessingQueue = true;
+            // Optional: UI indicator for queue processing
+            // console.log(`Processing queue, ${translationQueue.length} items remaining.`);
 
-            const item = translationQueue.shift(); // Get the oldest item
-            if (item) {
-                await sendToTranslateWithFirebaseAI(item.segment, item.fullText, item.placeholderId);
+            const item = translationQueue.shift(); 
+            try {
+                if (item) {
+                    await sendToTranslateWithFirebaseAI(item.segment, item.fullText, item.placeholderId);
+                }
+            } catch (error) {
+                // This catch is for unexpected errors within the queue processing logic itself,
+                // sendToTranslateWithFirebaseAI has its own error handling for API calls.
+                console.error("Critical error processing translation queue item:", error, item);
+                showUIMessage("Lỗi nghiêm trọng khi xử lý hàng đợi dịch.", 5000);
+            } finally {
+                isProcessingQueue = false;
             }
-
-            isProcessingQueue = false;
-            // If there are more items, process them
+            
             if (translationQueue.length > 0) {
-                 // Call recursively, but allow event loop to breathe
-                setTimeout(processTranslationQueue, 0);
+                setTimeout(processTranslationQueue, 50); // Give browser a bit more time
+            } else {
+                console.log("Translation queue processed completely.");
             }
         }
         // --- End Translation Queue ---
@@ -397,7 +407,7 @@
                     if (permissionNotice) permissionNotice.style.display = 'none';
                     if (saveTranslationButton) saveTranslationButton.style.display = 'none'; 
                     lastFinalTranscript = ""; 
-                    translationQueue = []; // Clear queue on new recording
+                    translationQueue = []; 
                 };
 
                 recognition.onresult = (event) => {
@@ -424,7 +434,6 @@
                             if (currentFullFinalTranscript.trim() !== '' && currentFullFinalTranscript !== lastFinalTranscript.trim()) { 
                                 console.log("Final transcript segment to send:", finalTranscriptSegment.trim());
                                 
-                                // Add to queue instead of calling directly
                                 const placeholderId = `translating-${Date.now()}`;
                                 const tempP = document.createElement('p');
                                 tempP.id = placeholderId;
@@ -438,7 +447,7 @@
                                     fullText: currentFullFinalTranscript,
                                     placeholderId: placeholderId 
                                 });
-                                processTranslationQueue(); // Trigger queue processing
+                                processTranslationQueue(); 
 
                                 lastFinalTranscript = currentFullFinalTranscript + " "; 
                             }
@@ -469,7 +478,6 @@
                 recognition.onend = () => {
                     if (isRecording) {
                         console.log("Speech recognition ended unexpectedly or timed out.");
-                         // Process any remaining items in the queue if recognition stops unexpectedly
                         processTranslationQueue();
                     } else {
                         console.log("Speech recognition ended by user or completed normally.");
@@ -544,7 +552,7 @@
                     lastFinalTranscript = ""; 
                     currentOriginalForSave = ""; 
                     currentTranslatedForSave = ""; 
-                    translationQueue = []; // Clear queue
+                    translationQueue = []; 
                     try {
                         recognition.lang = sourceLangSelect.value; 
                         recognition.start();
@@ -564,7 +572,6 @@
         if (stopButton) {
             stopButton.addEventListener('click', () => {
                 stopSpeechRecognition();
-                // Process any remaining items in the queue when user stops
                 processTranslationQueue(); 
                 showUIMessage("Đã dừng ghi âm.", 2000);
             });
@@ -588,7 +595,6 @@
         let currentOriginalForSave = "";
         let currentTranslatedForSave = "";
 
-        // Modified to accept placeholderId
         async function sendToTranslateWithFirebaseAI(textSegment, fullOriginalText, placeholderId) {
             if (!textSegment || textSegment.trim() === '') return;
             if (!generativeAIModel) {
@@ -600,7 +606,7 @@
             }
             currentOriginalForSave = fullOriginalText.trim(); 
 
-            const targetElement = document.getElementById(placeholderId); // Use the passed placeholderId
+            const targetElement = document.getElementById(placeholderId); 
 
             try {
                 const sourceLangForPrompt = languageMap[sourceLangSelect.value]?.geminiName || "auto";
@@ -628,10 +634,8 @@
                             targetElement.querySelector('span.text-blue-600').textContent += chunkText;
                         }
                     } 
-                    // No fallback here as placeholder should always exist if created correctly
                 }
                 
-                // Prepend the complete translation of this segment to the overall translation for saving
                 currentTranslatedForSave = accumulatedTranslatedTextForSegment.trim() + (currentTranslatedForSave ? " " + currentTranslatedForSave : ""); 
 
                 if(auth.currentUser && saveTranslationButton && accumulatedTranslatedTextForSegment.trim() !== "") {
