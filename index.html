@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phiên Dịch Thời Gian Thực MVP - Lịch Sử Dịch</title>
+    <title>Phiên Dịch Thời Gian Thực - Hai Chiều</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -37,6 +38,8 @@
         .btn-primary:hover { background-color: #15803d; }
         .btn-secondary { background-color: #6b7280; color: white; }
         .btn-secondary:hover { background-color: #4b5563; }
+        .btn-icon { padding: 6px 10px; }
+
 
         .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
         .status-recording { background-color: #ef4444; animation: pulse 1.5s infinite; }
@@ -68,11 +71,12 @@
             padding: 8px; border-radius: 8px; border: 1px solid #fef3c7;
             margin-bottom: 0.75rem; text-align: center; font-size: 0.8rem;
         }
-        .auth-form input {
+        .auth-form input, .language-select select {
             border: 1px solid #d1d5db; padding: 8px 10px; border-radius: 6px; margin-bottom: 0.5rem; width: 100%;
             font-size: 0.875rem;
         }
-        .auth-container, .history-container {
+         .language-select select { width: auto; min-width: 120px;}
+        .auth-container, .history-container, .language-select-container {
             border: 1px solid #e5e7eb; padding: 1rem; border-radius: 8px; margin-top: 1rem; background-color: #f9fafb;
         }
         .auth-status { font-size: 0.8rem; color: #4b5563; margin-top: 0.5rem; text-align: center; }
@@ -95,8 +99,8 @@
 
     <div class="w-full max-w-xl bg-white p-4 sm:p-6 rounded-xl shadow-xl">
         <header class="text-center mb-4">
-            <h1 class="text-xl sm:text-2xl font-bold text-gray-800">Phiên Dịch Thời Gian Thực MVP</h1>
-            <p class="text-xs sm:text-sm text-gray-500">Lịch Sử Dịch & Firebase AI Logic SDK</p>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-800">Phiên Dịch Thời Gian Thực</h1>
+            <p class="text-xs sm:text-sm text-gray-500">Dịch Hai Chiều & Firebase AI Logic SDK</p>
         </header>
 
         <!-- Firebase Auth UI -->
@@ -117,6 +121,29 @@
             <div id="authStatus" class="auth-status">Chưa đăng nhập.</div>
         </div>
 
+        <!-- Language Selection -->
+        <div class="language-select-container mb-4 p-4 rounded-lg">
+            <div class="flex items-center justify-around space-x-2">
+                <div class="language-select text-center">
+                    <label for="sourceLangSelect" class="block text-sm font-medium text-gray-700 mb-1">Nói bằng:</label>
+                    <select id="sourceLangSelect" class="btn">
+                        <option value="en-US">Tiếng Anh</option>
+                        <option value="vi-VN">Tiếng Việt</option>
+                    </select>
+                </div>
+                <button id="swapLangButton" class="btn btn-secondary btn-icon" title="Đảo chiều ngôn ngữ">
+                    <i class="fas fa-exchange-alt"></i>
+                </button>
+                <div class="language-select text-center">
+                    <label for="targetLangSelect" class="block text-sm font-medium text-gray-700 mb-1">Dịch sang:</label>
+                    <select id="targetLangSelect" class="btn">
+                        <option value="vi">Tiếng Việt</option>
+                        <option value="en">Tiếng Anh</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
 
         <div id="permissionNotice" class="permission-notice" style="display: none;">
             Ứng dụng này cần quyền truy cập microphone để hoạt động. Vui lòng cấp quyền khi được trình duyệt yêu cầu.
@@ -131,11 +158,11 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
-                <h2 class="text-md font-semibold text-gray-700 mb-1">Bạn nói (Tiếng Anh):</h2>
+                <h2 id="originalTextLabel" class="text-md font-semibold text-gray-700 mb-1">Bạn nói (Tiếng Anh):</h2>
                 <div id="originalText" class="transcript-box"></div>
             </div>
             <div>
-                <h2 class="text-md font-semibold text-gray-700 mb-1">Dịch (Tiếng Việt):</h2>
+                <h2 id="translatedTextLabel" class="text-md font-semibold text-gray-700 mb-1">Dịch (Tiếng Việt):</h2>
                 <div id="translatedText" class="transcript-box"></div>
             </div>
         </div>
@@ -182,6 +209,12 @@
 
         const historyContainer = document.getElementById('historyContainer');
         const translationHistoryDiv = document.getElementById('translationHistory');
+
+        const sourceLangSelect = document.getElementById('sourceLangSelect');
+        const targetLangSelect = document.getElementById('targetLangSelect');
+        const swapLangButton = document.getElementById('swapLangButton');
+        const originalTextLabel = document.getElementById('originalTextLabel');
+        const translatedTextLabel = document.getElementById('translatedTextLabel');
 
         // Import Firebase SDKs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
@@ -252,6 +285,22 @@
             if (startButton) startButton.disabled = true; 
         }
 
+        // Language mapping for display and API
+        const languageMap = {
+            "en-US": { name: "Tiếng Anh", geminiName: "English" },
+            "vi-VN": { name: "Tiếng Việt", geminiName: "Vietnamese" },
+            "en": { name: "Tiếng Anh", geminiName: "English" }, // For target language
+            "vi": { name: "Tiếng Việt", geminiName: "Vietnamese" } // For target language
+        };
+
+        function updateLanguageLabels() {
+            const sourceLangValue = sourceLangSelect.value;
+            const targetLangValue = targetLangSelect.value;
+            originalTextLabel.textContent = `Bạn nói (${languageMap[sourceLangValue]?.name || sourceLangValue}):`;
+            translatedTextLabel.textContent = `Dịch (${languageMap[targetLangValue]?.name || targetLangValue}):`;
+        }
+
+
         // Speech Recognition & Translation
         let recognition;
         let isRecording = false;
@@ -259,101 +308,144 @@
         let finalTranscriptTimer;
         let lastFinalTranscript = ""; 
 
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            if (generativeAIModel && permissionNotice) permissionNotice.style.display = 'block'; 
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            recognition = new SpeechRecognition();
-            recognition.continuous = true;
-            recognition.interimResults = true;
-            recognition.lang = 'en-US';
+        function initializeSpeechRecognition() {
+            if (recognition) { // Stop previous instance if exists
+                recognition.stop();
+            }
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                if (generativeAIModel && permissionNotice) permissionNotice.style.display = 'block'; 
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.lang = sourceLangSelect.value; // Set language based on selection
 
-            recognition.onstart = () => {
-                isRecording = true;
-                startButton.disabled = true;
-                stopButton.disabled = false;
-                statusDot.classList.remove('status-idle');
-                statusDot.classList.add('status-recording');
-                startButton.childNodes[2].nodeValue = ' Đang ghi...';
-                showUIMessage("Bắt đầu ghi âm...");
-                if (permissionNotice) permissionNotice.style.display = 'none';
-                if (saveTranslationButton) saveTranslationButton.style.display = 'none'; 
-                lastFinalTranscript = ""; 
-            };
+                recognition.onstart = () => {
+                    isRecording = true;
+                    startButton.disabled = true;
+                    stopButton.disabled = false;
+                    statusDot.classList.remove('status-idle');
+                    statusDot.classList.add('status-recording');
+                    startButton.childNodes[2].nodeValue = ' Đang ghi...';
+                    showUIMessage("Bắt đầu ghi âm...");
+                    if (permissionNotice) permissionNotice.style.display = 'none';
+                    if (saveTranslationButton) saveTranslationButton.style.display = 'none'; 
+                    lastFinalTranscript = ""; 
+                };
 
-            recognition.onresult = (event) => {
-                clearTimeout(finalTranscriptTimer);
-                let interimTranscript = '';
-                let finalTranscriptSegment = '';
-
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        finalTranscriptSegment += event.results[i][0].transcript;
-                    } else {
-                        interimTranscript += event.results[i][0].transcript;
-                    }
-                }
-                
-                if (originalTextBox) originalTextBox.innerHTML = lastFinalTranscript + finalTranscriptSegment + '<i class="text-gray-400">' + interimTranscript + '</i>';
-
-                if (finalTranscriptSegment.trim() !== '') {
-                    const currentFullFinalTranscript = (lastFinalTranscript + finalTranscriptSegment).trim();
-                    finalTranscriptTimer = setTimeout(() => {
-                        if (currentFullFinalTranscript.trim() !== '' && currentFullFinalTranscript !== lastFinalTranscript.trim()) { 
-                            console.log("Final transcript segment to send:", finalTranscriptSegment.trim());
-                            sendToTranslateWithFirebaseAI(finalTranscriptSegment.trim(), currentFullFinalTranscript); 
-                            lastFinalTranscript = currentFullFinalTranscript + " "; 
-                        }
-                    }, FINAL_TRANSCRIPT_TIMEOUT);
-                }
-            };
-
-            recognition.onerror = (event) => {
-                console.error("Speech recognition error:", event.error, event.message);
-                let errorMessageText = "Lỗi nhận dạng giọng nói: "; 
-                if (event.error === 'no-speech') {
-                    errorMessageText += "Không phát hiện thấy giọng nói. Vui lòng thử lại.";
-                } else if (event.error === 'audio-capture') {
-                    errorMessageText += "Không thể thu âm. Kiểm tra microphone của bạn.";
-                } else if (event.error === 'not-allowed') {
-                    errorMessageText = "Quyền truy cập microphone bị từ chối. Vui lòng kiểm tra cài đặt trình duyệt: \n1. Nhấp vào biểu tượng ổ khóa trên thanh địa chỉ. \n2. Tìm Microphone và chọn 'Allow'. \n3. Tải lại trang.";
-                    if (permissionNotice) {
-                        permissionNotice.style.display = 'block';
-                        permissionNotice.innerHTML = "<b>Quan trọng:</b> Quyền truy cập microphone đã bị từ chối. <br/>Làm theo hướng dẫn để cấp quyền và tải lại trang.";
-                    }
-                } else {
-                    errorMessageText += event.error + (event.message ? ` (${event.message})` : '');
-                }
-                showUIMessage(errorMessageText, 7000);
-                stopSpeechRecognition(); 
-            };
-
-            recognition.onend = () => {
-                if (isRecording) {
-                    console.log("Speech recognition ended unexpectedly or timed out.");
-                } else {
-                    console.log("Speech recognition ended by user or completed normally.");
-                }
-                if (startButton && startButton.disabled) {
-                    isRecording = false;
-                    startButton.disabled = false;
-                    if (stopButton) stopButton.disabled = true;
-                    if (statusDot) {
-                        statusDot.classList.remove('status-recording');
-                        statusDot.classList.add('status-idle');
-                    }
-                    if (startButton.childNodes[2]) startButton.childNodes[2].nodeValue = ' Bắt đầu';
+                recognition.onresult = (event) => {
                     clearTimeout(finalTranscriptTimer);
+                    let interimTranscript = '';
+                    let finalTranscriptSegment = '';
+
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            finalTranscriptSegment += event.results[i][0].transcript;
+                        } else {
+                            interimTranscript += event.results[i][0].transcript;
+                        }
+                    }
+                    
+                    if (originalTextBox) originalTextBox.innerHTML = lastFinalTranscript + finalTranscriptSegment + '<i class="text-gray-400">' + interimTranscript + '</i>';
+
+                    if (finalTranscriptSegment.trim() !== '') {
+                        const currentFullFinalTranscript = (lastFinalTranscript + finalTranscriptSegment).trim();
+                        finalTranscriptTimer = setTimeout(() => {
+                            if (currentFullFinalTranscript.trim() !== '' && currentFullFinalTranscript !== lastFinalTranscript.trim()) { 
+                                console.log("Final transcript segment to send:", finalTranscriptSegment.trim());
+                                sendToTranslateWithFirebaseAI(finalTranscriptSegment.trim(), currentFullFinalTranscript); 
+                                lastFinalTranscript = currentFullFinalTranscript + " "; 
+                            }
+                        }, FINAL_TRANSCRIPT_TIMEOUT);
+                    }
+                };
+
+                recognition.onerror = (event) => {
+                    console.error("Speech recognition error:", event.error, event.message);
+                    let errorMessageText = "Lỗi nhận dạng giọng nói: "; 
+                    if (event.error === 'no-speech') {
+                        errorMessageText += "Không phát hiện thấy giọng nói. Vui lòng thử lại.";
+                    } else if (event.error === 'audio-capture') {
+                        errorMessageText += "Không thể thu âm. Kiểm tra microphone của bạn.";
+                    } else if (event.error === 'not-allowed') {
+                        errorMessageText = "Quyền truy cập microphone bị từ chối. Vui lòng kiểm tra cài đặt trình duyệt: \n1. Nhấp vào biểu tượng ổ khóa trên thanh địa chỉ. \n2. Tìm Microphone và chọn 'Allow'. \n3. Tải lại trang.";
+                        if (permissionNotice) {
+                            permissionNotice.style.display = 'block';
+                            permissionNotice.innerHTML = "<b>Quan trọng:</b> Quyền truy cập microphone đã bị từ chối. <br/>Làm theo hướng dẫn để cấp quyền và tải lại trang.";
+                        }
+                    } else {
+                        errorMessageText += event.error + (event.message ? ` (${event.message})` : '');
+                    }
+                    showUIMessage(errorMessageText, 7000);
+                    stopSpeechRecognition(); 
+                };
+
+                recognition.onend = () => {
+                    if (isRecording) {
+                        console.log("Speech recognition ended unexpectedly or timed out.");
+                    } else {
+                        console.log("Speech recognition ended by user or completed normally.");
+                    }
+                    if (startButton && startButton.disabled) {
+                        isRecording = false;
+                        startButton.disabled = false;
+                        if (stopButton) stopButton.disabled = true;
+                        if (statusDot) {
+                            statusDot.classList.remove('status-recording');
+                            statusDot.classList.add('status-idle');
+                        }
+                        if (startButton.childNodes[2]) startButton.childNodes[2].nodeValue = ' Bắt đầu';
+                        clearTimeout(finalTranscriptTimer);
+                    }
+                };
+            } else {
+                showUIMessage("Trình duyệt không hỗ trợ Web Speech API. Dùng Google Chrome.", 5000);
+                if (startButton) startButton.disabled = true;
+                if (stopButton) stopButton.disabled = true;
+                if (permissionNotice) {
+                    permissionNotice.innerHTML = "Trình duyệt không hỗ trợ Web Speech API. Dùng Google Chrome.";
+                    permissionNotice.style.display = 'block';
                 }
-            };
-        } else {
-            showUIMessage("Trình duyệt không hỗ trợ Web Speech API. Dùng Google Chrome.", 5000);
-            if (startButton) startButton.disabled = true;
-            if (stopButton) stopButton.disabled = true;
-            if (permissionNotice) {
-                permissionNotice.innerHTML = "Trình duyệt không hỗ trợ Web Speech API. Dùng Google Chrome.";
-                permissionNotice.style.display = 'block';
             }
         }
+        
+        // Initial setup
+        updateLanguageLabels();
+        initializeSpeechRecognition(); // Initialize with default language
+
+        sourceLangSelect.addEventListener('change', () => {
+            updateLanguageLabels();
+            initializeSpeechRecognition(); // Re-initialize with new source language
+            if (isRecording) stopSpeechRecognition(); // Stop if recording
+            showUIMessage(`Ngôn ngữ nói đổi thành: ${languageMap[sourceLangSelect.value]?.name}`, 2000);
+        });
+
+        targetLangSelect.addEventListener('change', () => {
+            updateLanguageLabels();
+            showUIMessage(`Ngôn ngữ dịch đổi thành: ${languageMap[targetLangSelect.value]?.name}`, 2000);
+        });
+
+        swapLangButton.addEventListener('click', () => {
+            const currentSource = sourceLangSelect.value;
+            const currentTarget = targetLangSelect.value;
+
+            // Determine new values based on current mapping
+            // This logic assumes en-US/vi-VN for source and en/vi for target
+            if (currentSource === "en-US" && currentTarget === "vi") {
+                sourceLangSelect.value = "vi-VN";
+                targetLangSelect.value = "en";
+            } else if (currentSource === "vi-VN" && currentTarget === "en") {
+                sourceLangSelect.value = "en-US";
+                targetLangSelect.value = "vi";
+            }
+            // Add more specific swaps if needed, or make it more generic
+            
+            updateLanguageLabels();
+            initializeSpeechRecognition();
+            if (isRecording) stopSpeechRecognition();
+            showUIMessage("Đã đảo chiều ngôn ngữ.", 2000);
+        });
+
 
         if (startButton) {
             startButton.addEventListener('click', () => {
@@ -368,6 +460,7 @@
                     currentOriginalForSave = ""; 
                     currentTranslatedForSave = ""; 
                     try {
+                        recognition.lang = sourceLangSelect.value; // Ensure correct language before starting
                         recognition.start();
                     } catch (e) {
                         console.error("Error starting recognition:", e);
@@ -434,22 +527,23 @@
             if (translatedTextBox) translatedTextBox.innerHTML = newContent;
 
             try {
-                const targetLang = 'Vietnamese'; 
-                // Cải thiện prompt để yêu cầu bản dịch trực tiếp hơn
-                const prompt = `Provide a direct translation of the following English text to ${targetLang}, without explanations or additional context: "${textSegment}"`;
+                const sourceLangForPrompt = languageMap[sourceLangSelect.value]?.geminiName || "auto";
+                const targetLangForPrompt = languageMap[targetLangSelect.value]?.geminiName || "Vietnamese";
                 
-                console.log("Sending prompt to Gemini via Firebase AI Logic:", prompt);
+                const prompt = `Provide a direct translation of the following ${sourceLangForPrompt} text to ${targetLangForPrompt}, without explanations or additional context: "${textSegment}"`;
+                
+                console.log("Sending prompt to Gemini:", prompt);
                 const result = await generativeAIModel.generateContent(prompt);
                 const response = result.response;
                 const translatedText = response.text();
-                console.log("Received translation via Firebase AI Logic:", translatedText);
+                console.log("Received translation:", translatedText);
 
                 let tempTranslatingElement = document.getElementById(translatingMsgId);
 
                 if (translatedText) {
                     currentTranslatedForSave = (currentTranslatedForSave ? currentTranslatedForSave + " " : "") + translatedText;
                     if (tempTranslatingElement) {
-                        tempTranslatingElement.innerHTML = `<span class="text-sm font-semibold text-blue-600">${translatedText.trim()}</span>`; // Thêm trim() ở đây
+                        tempTranslatingElement.innerHTML = `<span class="text-sm font-semibold text-blue-600">${translatedText.trim()}</span>`;
                     } else { 
                         const lastP = translatedTextBox ? translatedTextBox.querySelector('p:last-child') : null;
                         if(lastP) lastP.innerHTML += `<br/><span class="text-sm font-semibold text-blue-600">${translatedText.trim()}</span>`;
@@ -561,8 +655,8 @@
                         userId: user.uid,
                         originalText: currentOriginalForSave,
                         translatedText: currentTranslatedForSave,
-                        sourceLang: 'en-US', 
-                        targetLang: 'vi',   
+                        sourceLang: sourceLangSelect.value, // Lưu ngôn ngữ đã chọn
+                        targetLang: targetLangSelect.value, // Lưu ngôn ngữ đã chọn
                         createdAt: serverTimestamp() 
                     });
                     showUIMessage("Đã lưu bản dịch thành công!", 3000);
@@ -601,13 +695,16 @@
                     const historyItem = document.createElement('div');
                     historyItem.className = 'history-item';
                     
+                    const sourceLangDisplay = languageMap[data.sourceLang]?.name || data.sourceLang;
+                    const targetLangDisplay = languageMap[data.targetLang]?.name || data.targetLang;
+
                     const originalP = document.createElement('p');
                     originalP.className = 'original';
-                    originalP.textContent = `Gốc (EN): ${data.originalText}`;
+                    originalP.textContent = `Gốc (${sourceLangDisplay}): ${data.originalText}`;
                     
                     const translatedP = document.createElement('p');
                     translatedP.className = 'translated';
-                    translatedP.textContent = `Dịch (VI): ${data.translatedText}`;
+                    translatedP.textContent = `Dịch (${targetLangDisplay}): ${data.translatedText}`;
                     
                     const timestampP = document.createElement('p');
                     timestampP.className = 'timestamp';
