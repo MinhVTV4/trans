@@ -13,18 +13,24 @@
             background-color: #f3f4f6;
         }
         .transcript-box-container {
-            position: relative; /* For positioning clear/copy buttons */
+            position: relative; 
         }
         .transcript-box {
             min-height: 80px; 
             border: 1px solid #d1d5db;
             padding: 10px;
-            padding-right: 30px; /* Space for buttons */
+            padding-right: 30px; 
             border-radius: 8px;
             background-color: #ffffff;
             box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
             overflow-y: auto; 
-            max-height: 150px; 
+            max-height: 120px; /* Giảm chiều cao một chút để có không gian cho box mới */
+        }
+        #rawTranscriptBox { /* Box mới cho raw transcript */
+            background-color: #e9ecef; /* Màu nền hơi khác để phân biệt */
+            font-style: italic;
+            color: #495057;
+            max-height: 100px;
         }
         .transcript-action-btn {
             position: absolute;
@@ -32,13 +38,13 @@
             right: 5px;
             background: none;
             border: none;
-            color: #9ca3af; /* Light gray */
+            color: #9ca3af; 
             cursor: pointer;
             font-size: 0.9rem;
             padding: 2px;
         }
         .transcript-action-btn:hover {
-            color: #4b5563; /* Darker gray */
+            color: #4b5563; 
         }
         .btn {
             padding: 8px 16px; 
@@ -94,7 +100,7 @@
             font-size: 0.875rem;
         }
          .language-select select { width: auto; min-width: 120px;}
-        .auth-container, .history-container, .language-select-container {
+        .auth-container, .history-container, .language-select-container, .raw-transcript-container {
             border: 1px solid #e5e7eb; padding: 1rem; border-radius: 8px; margin-top: 1rem; background-color: #f9fafb;
         }
         .auth-status { font-size: 0.8rem; color: #4b5563; margin-top: 0.5rem; text-align: center; }
@@ -112,7 +118,6 @@
         .history-item .timestamp { font-size: 0.75rem; color: #6b7280; text-align: right; }
         #translationHistory { max-height: 200px; overflow-y: auto; }
         
-        /* Spinner styles */
         .spinner {
             display: inline-block;
             width: 1em;
@@ -190,11 +195,17 @@
             <button id="stopButton" class="btn btn-stop" disabled>Dừng</button>
         </div>
 
+        <!-- Raw Transcript Box -->
+        <div class="raw-transcript-container mb-4">
+            <h2 class="text-md font-semibold text-gray-700 mb-1">Lời nói được ghi nhận (Thô):</h2>
+            <div id="rawTranscriptBox" class="transcript-box"></div>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div class="transcript-box-container">
-                <h2 id="originalTextLabel" class="text-md font-semibold text-gray-700 mb-1">Bạn nói (Tiếng Anh):</h2>
+                <h2 id="originalTextLabel" class="text-md font-semibold text-gray-700 mb-1">Chuẩn bị dịch:</h2>
                 <div id="originalText" class="transcript-box"></div>
-                <button id="clearOriginalTextBtn" class="transcript-action-btn" title="Xóa văn bản gốc"><i class="fas fa-times-circle"></i></button>
+                <button id="clearOriginalTextBtn" class="transcript-action-btn" title="Xóa văn bản chuẩn bị dịch"><i class="fas fa-times-circle"></i></button>
             </div>
             <div class="transcript-box-container">
                 <h2 id="translatedTextLabel" class="text-md font-semibold text-gray-700 mb-1">Dịch (Tiếng Việt):</h2>
@@ -227,7 +238,8 @@
         // DOM Element Constants
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
-        const originalTextBox = document.getElementById('originalText');
+        const rawTranscriptBox = document.getElementById('rawTranscriptBox'); // Box mới
+        const originalTextBox = document.getElementById('originalText'); // Box "Chuẩn bị dịch"
         const translatedTextBox = document.getElementById('translatedText');
         const statusDot = document.getElementById('statusDot');
         const messageBox = document.getElementById('messageBox');
@@ -250,7 +262,7 @@
         const sourceLangSelect = document.getElementById('sourceLangSelect');
         const targetLangSelect = document.getElementById('targetLangSelect');
         const swapLangButton = document.getElementById('swapLangButton');
-        const originalTextLabel = document.getElementById('originalTextLabel');
+        const originalTextLabel = document.getElementById('originalTextLabel'); // Label cho box "Chuẩn bị dịch"
         const translatedTextLabel = document.getElementById('translatedTextLabel');
 
         const clearOriginalTextBtn = document.getElementById('clearOriginalTextBtn');
@@ -337,17 +349,19 @@
         function updateLanguageLabels() {
             const sourceLangValue = sourceLangSelect.value;
             const targetLangValue = targetLangSelect.value;
-            originalTextLabel.textContent = `Bạn nói (${languageMap[sourceLangValue]?.name || sourceLangValue}):`;
-            translatedTextLabel.textContent = `Dịch (${languageMap[targetLangValue]?.name || targetLangValue}):`;
+            // originalTextLabel đã được đổi tên thành "Chuẩn bị dịch" trong HTML
+            // translatedTextLabel.textContent = `Dịch (${languageMap[targetLangValue]?.name || targetLangValue}):`;
         }
 
 
         // Speech Recognition & Translation
         let recognition;
         let isRecording = false;
-        const FINAL_TRANSCRIPT_TIMEOUT = 1000; 
-        let finalTranscriptTimer; // Timer for user pauses
-        let lastFinalTranscript = ""; 
+        const USER_PAUSE_TIMEOUT = 1000; // Thời gian người dùng dừng nói để chốt câu
+        let userPauseTimer; 
+        let accumulatedRawTranscript = ""; // Lưu trữ toàn bộ lời nói thô
+        let lastProcessedRawTranscriptLength = 0; // Để theo dõi phần raw transcript đã được xử lý
+
 
         // --- Translation Queue ---
         let translationQueue = [];
@@ -363,7 +377,15 @@
             const item = translationQueue.shift(); 
             try {
                 if (item) {
-                    await sendToTranslateWithFirebaseAI(item.segment, item.fullText, item.placeholderId);
+                    // Hiển thị đoạn chuẩn bị dịch vào originalTextBox
+                    if(originalTextBox) {
+                        const p = document.createElement('p');
+                        p.textContent = item.segment;
+                        originalTextBox.innerHTML = ''; // Xóa nội dung cũ của box chuẩn bị dịch
+                        originalTextBox.appendChild(p);
+                        originalTextBox.scrollTop = originalTextBox.scrollHeight;
+                    }
+                    await sendToTranslateWithFirebaseAI(item.segment, item.fullTextForSave, item.placeholderId);
                 }
             } catch (error) {
                 console.error("Critical error processing translation queue item:", error, item);
@@ -381,10 +403,8 @@
         // --- End Translation Queue ---
 
         // --- Forced Segmentation Timer ---
-        let forceSegmentTimer;
-        const MAX_CONTINUOUS_SPEECH_DURATION = 5000; // e.g., 7 seconds
-        let lastSpeechActivityTime = 0;
-        let accumulatedInterimForForce = ""; // To capture text if no final result comes
+        let maxUtteranceLengthTimer; 
+        const MAX_UTTERANCE_LENGTH_MS = 4000; 
         // --- End Forced Segmentation Timer ---
 
 
@@ -396,8 +416,8 @@
                 if (generativeAIModel && permissionNotice) permissionNotice.style.display = 'block'; 
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                 recognition = new SpeechRecognition();
-                recognition.continuous = true;
-                recognition.interimResults = true;
+                recognition.continuous = true; // Quan trọng để nhận dạng liên tục
+                recognition.interimResults = true; // Lấy cả kết quả tạm thời
                 recognition.lang = sourceLangSelect.value; 
 
                 recognition.onstart = () => {
@@ -410,76 +430,67 @@
                     showUIMessage("Bắt đầu ghi âm...");
                     if (permissionNotice) permissionNotice.style.display = 'none';
                     if (saveTranslationButton) saveTranslationButton.style.display = 'none'; 
-                    lastFinalTranscript = ""; 
+                    accumulatedRawTranscript = ""; 
+                    lastProcessedRawTranscriptLength = 0;
+                    if (rawTranscriptBox) rawTranscriptBox.innerHTML = ""; // Xóa box raw khi bắt đầu mới
+                    if (originalTextBox) originalTextBox.innerHTML = "";
+                    if (translatedTextBox) translatedTextBox.innerHTML = "";
                     translationQueue = []; 
-                    accumulatedInterimForForce = "";
-                    lastSpeechActivityTime = Date.now();
-                    clearTimeout(forceSegmentTimer); // Clear previous timer
-                    forceSegmentTimer = setTimeout(checkAndForceSegment, MAX_CONTINUOUS_SPEECH_DURATION);
+                    clearTimeout(maxUtteranceLengthTimer); 
+                    maxUtteranceLengthTimer = setTimeout(processAndStageTranscript, MAX_UTTERANCE_LENGTH_MS);
                 };
 
                 recognition.onresult = (event) => {
-                    lastSpeechActivityTime = Date.now(); // Update activity time
-                    clearTimeout(finalTranscriptTimer); // Reset pause timer
-                    clearTimeout(forceSegmentTimer); // Reset force segment timer on new result
-                    forceSegmentTimer = setTimeout(checkAndForceSegment, MAX_CONTINUOUS_SPEECH_DURATION); // Restart it
+                    clearTimeout(userPauseTimer); 
+                    clearTimeout(maxUtteranceLengthTimer);
+                    maxUtteranceLengthTimer = setTimeout(processAndStageTranscript, MAX_UTTERANCE_LENGTH_MS);
 
-
-                    let interimTranscript = '';
-                    let finalTranscriptSegment = '';
-
+                    let currentEventTranscript = "";
                     for (let i = event.resultIndex; i < event.results.length; ++i) {
-                        const transcriptPart = event.results[i][0].transcript;
+                        currentEventTranscript += event.results[i][0].transcript;
                         if (event.results[i].isFinal) {
-                            finalTranscriptSegment += transcriptPart;
-                            accumulatedInterimForForce = ""; // Reset if we get a final
-                        } else {
-                            interimTranscript += transcriptPart;
-                            accumulatedInterimForForce += transcriptPart; // Accumulate for potential forced segment
+                            // Khi có isFinal, cập nhật accumulatedRawTranscript và xử lý ngay
+                            accumulatedRawTranscript += event.results[i][0].transcript + " "; // Thêm khoảng trắng để tách từ/câu
+                            processAndStageTranscript(true); // true để báo là có isFinal
                         }
                     }
                     
-                    if (originalTextBox) {
-                        originalTextBox.innerHTML = lastFinalTranscript + finalTranscriptSegment + '<i class="text-gray-400">' + interimTranscript + '</i>';
-                        originalTextBox.scrollTop = originalTextBox.scrollHeight; 
+                    // Hiển thị toàn bộ raw transcript (bao gồm cả interim)
+                    if (rawTranscriptBox) {
+                        let displayRaw = accumulatedRawTranscript;
+                        // Thêm phần interim của event hiện tại nếu nó chưa final
+                        if (event.results[event.results.length-1] && !event.results[event.results.length-1].isFinal) {
+                            displayRaw += event.results[event.results.length-1][0].transcript;
+                        }
+                        rawTranscriptBox.innerHTML = displayRaw.replace(/\n/g, "<br>");
+                        rawTranscriptBox.scrollTop = rawTranscriptBox.scrollHeight; 
                     }
 
-                    if (finalTranscriptSegment.trim() !== '') {
-                        const currentFullFinalTranscript = (lastFinalTranscript + finalTranscriptSegment).trim();
-                        // Queue immediately if it's a new final segment
-                        if (currentFullFinalTranscript.trim() !== '' && currentFullFinalTranscript !== lastFinalTranscript.trim()) {
-                            console.log("Final segment received, queuing:", finalTranscriptSegment.trim());
-                            queueTranslation(finalTranscriptSegment.trim(), currentFullFinalTranscript);
-                            lastFinalTranscript = currentFullFinalTranscript + " "; 
-                        }
-                    } else if (interimTranscript.trim() !== '') {
-                        // If only interim, set a timer to potentially send this interim if no final comes soon
-                        finalTranscriptTimer = setTimeout(() => {
-                            const currentInterim = accumulatedInterimForForce.trim();
-                            if (isRecording && currentInterim !== '') {
-                                console.log("Pause detected, queuing accumulated interim:", currentInterim);
-                                // Treat the accumulated interim as a segment to translate
-                                // Ensure it's not just a re-trigger for the same text
-                                if (currentInterim !== (lastFinalTranscript.endsWith(currentInterim + " ") ? currentInterim : "" ) ) {
-                                     queueTranslation(currentInterim, (lastFinalTranscript + currentInterim).trim());
-                                     lastFinalTranscript = (lastFinalTranscript + currentInterim).trim() + " ";
-                                     accumulatedInterimForForce = ""; // Reset after queuing
-                                }
+                    // Đặt timer cho trường hợp người dùng dừng nói (USER_PAUSE_TIMEOUT)
+                    // Chỉ kích hoạt nếu không có isFinal trong event này
+                    if (!event.results[event.resultIndex].isFinal) {
+                         userPauseTimer = setTimeout(() => {
+                            if (isRecording) {
+                                console.log("User pause detected, processing raw transcript.");
+                                accumulatedRawTranscript += currentEventTranscript.substring(accumulatedRawTranscript.length > 0 ? 0 : currentEventTranscript.lastIndexOf(accumulatedRawTranscript.slice(-20)) + accumulatedRawTranscript.slice(-20).length ) + " ";
+                                processAndStageTranscript(true); // Coi như là final khi người dùng dừng
                             }
-                        }, FINAL_TRANSCRIPT_TIMEOUT);
+                        }, USER_PAUSE_TIMEOUT);
                     }
                 };
+                
 
                 recognition.onerror = (event) => {
                     console.error("Speech recognition error:", event.error, event.message);
-                    clearTimeout(forceSegmentTimer);
+                    clearTimeout(maxUtteranceLengthTimer);
+                    clearTimeout(userPauseTimer);
                     let errorMessageText = "Lỗi nhận dạng giọng nói: "; 
                     if (event.error === 'no-speech') {
                         errorMessageText += "Không phát hiện thấy giọng nói. Vui lòng thử lại.";
                     } else if (event.error === 'audio-capture') {
                         errorMessageText += "Không thể thu âm. Kiểm tra microphone của bạn.";
                     } else if (event.error === 'not-allowed') {
-                        errorMessageText = "Quyền truy cập microphone bị từ chối. Vui lòng kiểm tra cài đặt trình duyệt: \n1. Nhấp vào biểu tượng ổ khóa trên thanh địa chỉ. \n2. Tìm Microphone và chọn 'Allow'. \n3. Tải lại trang.";
+                        errorMessageText = "Quyền truy cập microphone bị từ chối. Vui lòng kiểm tra cài đặt trình duyệt.";
                         if (permissionNotice) {
                             permissionNotice.style.display = 'block';
                             permissionNotice.innerHTML = "<b>Quan trọng:</b> Quyền truy cập microphone đã bị từ chối. <br/>Làm theo hướng dẫn để cấp quyền và tải lại trang.";
@@ -492,25 +503,17 @@
                 };
 
                 recognition.onend = () => {
-                    clearTimeout(forceSegmentTimer);
-                    clearTimeout(finalTranscriptTimer);
-                    if (isRecording) { // Ended unexpectedly or by forced segmentation
+                    clearTimeout(maxUtteranceLengthTimer);
+                    clearTimeout(userPauseTimer);
+                    if (isRecording) { 
                         console.log("Speech recognition ended.");
-                         // If there's remaining accumulated interim text from forced stop, queue it.
-                        const remainingInterim = accumulatedInterimForForce.trim();
-                        if (remainingInterim !== '') {
-                            console.log("Queuing remaining interim on recognition end:", remainingInterim);
-                            queueTranslation(remainingInterim, (lastFinalTranscript + remainingInterim).trim());
-                            lastFinalTranscript = (lastFinalTranscript + remainingInterim).trim() + " ";
-                            accumulatedInterimForForce = "";
-                        }
-                        processTranslationQueue(); // Process anything left
+                        processAndStageTranscript(true); // Xử lý phần còn lại khi kết thúc
+                        processTranslationQueue(); 
                     } else {
                         console.log("Speech recognition ended by user or completed normally.");
                     }
                     
-                    // Reset UI if not already handled by a restart (in case of forced segmentation)
-                    isRecording = false; // Ensure isRecording is false before UI reset
+                    isRecording = false; 
                     if (startButton && startButton.disabled) {
                         startButton.disabled = false;
                         if (stopButton) stopButton.disabled = true;
@@ -522,59 +525,50 @@
                     }
                 };
             } else {
-                showUIMessage("Trình duyệt không hỗ trợ Web Speech API. Dùng Google Chrome.", 5000);
-                if (startButton) startButton.disabled = true;
-                if (stopButton) stopButton.disabled = true;
-                if (permissionNotice) {
-                    permissionNotice.innerHTML = "Trình duyệt không hỗ trợ Web Speech API. Dùng Google Chrome.";
-                    permissionNotice.style.display = 'block';
-                }
+                // ... (xử lý trình duyệt không hỗ trợ)
             }
-        }
-
-        function queueTranslation(segment, fullText) {
-            if (!segment || segment.trim() === '') return;
-
-            const placeholderId = `translating-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-            const tempP = document.createElement('p');
-            tempP.id = placeholderId;
-            tempP.innerHTML = `<span class="text-gray-400">Đang dịch: "${segment}"<span class="spinner"></span></span>`;
-            if (translatedTextBox) {
-                translatedTextBox.insertBefore(tempP, translatedTextBox.firstChild);
-                translatedTextBox.scrollTop = 0; // Scroll to top to see new placeholder
-            }
-
-            translationQueue.push({ 
-                segment: segment, 
-                fullText: fullText,
-                placeholderId: placeholderId 
-            });
-            processTranslationQueue(); 
         }
         
-        function checkAndForceSegment() {
-            if (!isRecording) return;
-
-            const now = Date.now();
-            if (now - lastSpeechActivityTime >= MAX_CONTINUOUS_SPEECH_DURATION) {
-                console.log("Max continuous speech duration reached. Forcing segment.");
-                const currentInterimToForce = accumulatedInterimForForce.trim();
-                if (currentInterimToForce !== "") {
-                    // Queue the accumulated interim as if it were a final segment
-                    queueTranslation(currentInterimToForce, (lastFinalTranscript + currentInterimToForce).trim());
-                    lastFinalTranscript = (lastFinalTranscript + currentInterimToForce).trim() + " ";
-                    accumulatedInterimForForce = ""; // Reset
+        // Hàm xử lý raw transcript và đưa vào box "Chuẩn bị dịch"
+        function processAndStageTranscript(forceFinal = false) {
+            if (!accumulatedRawTranscript || accumulatedRawTranscript.length <= lastProcessedRawTranscriptLength) {
+                if (forceFinal && accumulatedRawTranscript.trim() !== "") { // Xử lý trường hợp cuối cùng
+                     // Do nothing, onend will handle the final part
+                } else {
+                    return; // Không có gì mới để xử lý
                 }
-                // Restart the timer for the next potential forced segment
-                lastSpeechActivityTime = Date.now(); // Reset activity time
-                clearTimeout(forceSegmentTimer);
-                forceSegmentTimer = setTimeout(checkAndForceSegment, MAX_CONTINUOUS_SPEECH_DURATION);
-            } else {
-                // If not forcing, reschedule the check
-                clearTimeout(forceSegmentTimer);
-                forceSegmentTimer = setTimeout(checkAndForceSegment, MAX_CONTINUOUS_SPEECH_DURATION - (now - lastSpeechActivityTime));
+            }
+            
+            // Lấy phần mới của raw transcript chưa được xử lý
+            let newSegment = accumulatedRawTranscript.substring(lastProcessedRawTranscriptLength).trim();
+
+            if (newSegment) {
+                console.log("Staging segment:", newSegment);
+                // Cập nhật độ dài đã xử lý
+                lastProcessedRawTranscriptLength = accumulatedRawTranscript.length;
+                
+                // Đây là nơi có thể thêm logic "chuẩn hóa" câu nếu cần
+                // Hiện tại, chúng ta chỉ lấy đoạn mới và đưa vào hàng đợi
+                
+                // Tạo placeholder và đưa vào hàng đợi dịch
+                const placeholderId = `translating-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+                // Không trực tiếp hiển thị "Đang dịch" ở đây nữa, mà là khi nó được lấy từ queue
+                
+                translationQueue.push({ 
+                    segment: newSegment, 
+                    fullTextForSave: accumulatedRawTranscript.trim(), // Lưu toàn bộ raw transcript hiện tại
+                    placeholderId: placeholderId 
+                });
+                processTranslationQueue(); 
+
+                // Reset maxUtteranceLengthTimer vì đã có một đoạn được xử lý
+                clearTimeout(maxUtteranceLengthTimer);
+                if (isRecording) { 
+                    maxUtteranceLengthTimer = setTimeout(processAndStageTranscript, MAX_UTTERANCE_LENGTH_MS);
+                }
             }
         }
+
         
         // Initial setup
         updateLanguageLabels();
@@ -618,16 +612,17 @@
                      return;
                 }
                 if (recognition) {
+                    if (rawTranscriptBox) rawTranscriptBox.innerHTML = '';
                     if (originalTextBox) originalTextBox.innerHTML = ''; 
                     if (translatedTextBox) translatedTextBox.innerHTML = ''; 
-                    lastFinalTranscript = ""; 
+                    accumulatedRawTranscript = ""; 
+                    lastProcessedRawTranscriptLength = 0;
                     currentOriginalForSave = ""; 
                     currentTranslatedForSave = ""; 
                     translationQueue = []; 
-                    accumulatedInterimForForce = "";
                     try {
                         recognition.lang = sourceLangSelect.value; 
-                        recognition.start();
+                        recognition.start(); 
                     } catch (e) {
                         console.error("Error starting recognition:", e);
                         if (e.name === 'InvalidStateError' && isRecording) {
@@ -643,49 +638,47 @@
 
         if (stopButton) {
             stopButton.addEventListener('click', () => {
-                stopSpeechRecognition(); // This will also clear forceSegmentTimer
-                // Queue any remaining accumulated interim text before processing the queue fully
-                const remainingInterim = accumulatedInterimForForce.trim();
-                if (remainingInterim !== '') {
-                     console.log("Queuing remaining interim on user stop:", remainingInterim);
-                     queueTranslation(remainingInterim, (lastFinalTranscript + remainingInterim).trim());
-                     lastFinalTranscript = (lastFinalTranscript + remainingInterim).trim() + " ";
-                     accumulatedInterimForForce = "";
-                }
+                stopSpeechRecognition(); 
+                processAndStageTranscript(true); // Xử lý phần còn lại khi người dùng nhấn dừng
                 processTranslationQueue(); 
                 showUIMessage("Đã dừng ghi âm.", 2000);
             });
         }
 
         function stopSpeechRecognition() { 
-            clearTimeout(forceSegmentTimer); // Stop the force segment timer
+            clearTimeout(maxUtteranceLengthTimer); 
+            clearTimeout(userPauseTimer);
             if (recognition && isRecording) {
-                recognition.stop(); // This will trigger onend
+                recognition.stop(); 
             }
-            // UI updates are now primarily handled in onend to avoid race conditions
-            isRecording = false; // Set recording state immediately
-            // We don't reset UI here directly, let onend handle it after recognition fully stops
+            isRecording = false; 
         }
         
         let currentOriginalForSave = "";
         let currentTranslatedForSave = "";
 
-        async function sendToTranslateWithFirebaseAI(textSegment, fullOriginalText, placeholderId) {
+        async function sendToTranslateWithFirebaseAI(textSegment, fullOriginalTextForSave, placeholderId) {
             if (!textSegment || textSegment.trim() === '') {
                  const el = document.getElementById(placeholderId);
-                 if(el) el.remove(); // Remove placeholder if segment is empty
+                 if(el) el.remove(); 
                  return;
             }
             if (!generativeAIModel) {
                 showUIMessage("Lỗi: Dịch vụ AI chưa sẵn sàng để dịch.", 5000);
                 const errorP = document.getElementById(placeholderId);
+                // Cập nhật placeholder với lỗi thay vì thêm mới
                 if (errorP) errorP.innerHTML = `<span class="text-red-500">[Lỗi AI Service]</span>`;
-                else if (translatedTextBox) translatedTextBox.innerHTML = `<p><span class="text-red-500">[Lỗi AI Service]</span></p>` + translatedTextBox.innerHTML;
+                // else if (translatedTextBox) translatedTextBox.innerHTML = `<p><span class="text-red-500">[Lỗi AI Service]</span></p>` + translatedTextBox.innerHTML;
                 return;
             }
-            currentOriginalForSave = fullOriginalText.trim(); 
-
+            // currentOriginalForSave sẽ được cập nhật bởi logic lưu trữ, dựa trên fullTextForSave
+            // khi người dùng nhấn nút "Lưu"
+            
             const targetElement = document.getElementById(placeholderId); 
+            if (targetElement) { // Cập nhật placeholder để hiển thị spinner
+                 targetElement.innerHTML = `<span class="text-gray-400">Đang dịch: "${textSegment}"<span class="spinner"></span></span>`;
+            }
+
 
             try {
                 const sourceLangForPrompt = languageMap[sourceLangSelect.value]?.geminiName || "auto";
@@ -715,7 +708,10 @@
                     } 
                 }
                 
-                currentTranslatedForSave = accumulatedTranslatedTextForSegment.trim() + (currentTranslatedForSave ? " " + currentTranslatedForSave : ""); 
+                // Cập nhật currentTranslatedForSave để chuẩn bị cho việc lưu
+                // Nối vào đầu để giữ thứ tự hiển thị (mới nhất ở trên)
+                currentTranslatedForSave = accumulatedTranslatedTextForSegment.trim() + (currentTranslatedForSave ? "\n" + currentTranslatedForSave : ""); 
+                currentOriginalForSave = fullOriginalTextForSave; // Cập nhật toàn bộ văn bản gốc cho việc lưu
 
                 if(auth.currentUser && saveTranslationButton && accumulatedTranslatedTextForSegment.trim() !== "") {
                     saveTranslationButton.style.display = 'inline-block';
@@ -737,12 +733,27 @@
         if(clearOriginalTextBtn) {
             clearOriginalTextBtn.addEventListener('click', () => {
                 if(originalTextBox) originalTextBox.innerHTML = '';
-                lastFinalTranscript = ""; 
-                currentOriginalForSave = "";
-                accumulatedInterimForForce = "";
-                showUIMessage("Đã xóa văn bản gốc.", 1500);
+                // lastFinalTranscript = ""; // Không còn dùng trực tiếp nữa
+                // currentOriginalForSave = "";
+                // currentInterimTranscriptForUtterance = "";
+                showUIMessage("Đã xóa văn bản chuẩn bị dịch.", 1500);
             });
         }
+         if(rawTranscriptBox && !document.getElementById('clearRawTranscriptBtn')) { // Thêm nút xóa cho raw transcript
+            const clearRawBtn = document.createElement('button');
+            clearRawBtn.id = 'clearRawTranscriptBtn';
+            clearRawBtn.className = 'transcript-action-btn';
+            clearRawBtn.title = 'Xóa lời nói thô';
+            clearRawBtn.innerHTML = '<i class="fas fa-times-circle"></i>';
+            rawTranscriptBox.parentNode.appendChild(clearRawBtn);
+            clearRawBtn.addEventListener('click', () => {
+                rawTranscriptBox.innerHTML = '';
+                accumulatedRawTranscript = "";
+                lastProcessedRawTranscriptLength = 0;
+                showUIMessage("Đã xóa lời nói thô.", 1500);
+            });
+        }
+
 
         if(clearTranslatedTextBtn) {
             clearTranslatedTextBtn.addEventListener('click', () => {
@@ -876,8 +887,8 @@
                 try {
                     await addDoc(collection(db, "translations"), {
                         userId: user.uid,
-                        originalText: currentOriginalForSave,
-                        translatedText: currentTranslatedForSave,
+                        originalText: currentOriginalForSave, // Lưu toàn bộ văn bản gốc đã được chuẩn bị
+                        translatedText: currentTranslatedForSave, // Lưu toàn bộ văn bản dịch đã được ghép
                         sourceLang: sourceLangSelect.value, 
                         targetLang: targetLangSelect.value, 
                         createdAt: serverTimestamp() 
