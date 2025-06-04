@@ -12,15 +12,33 @@
             font-family: 'Inter', sans-serif;
             background-color: #f3f4f6;
         }
+        .transcript-box-container {
+            position: relative; /* For positioning clear/copy buttons */
+        }
         .transcript-box {
             min-height: 80px; 
             border: 1px solid #d1d5db;
             padding: 10px;
+            padding-right: 30px; /* Space for buttons */
             border-radius: 8px;
             background-color: #ffffff;
             box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
             overflow-y: auto; 
             max-height: 150px; 
+        }
+        .transcript-action-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: none;
+            border: none;
+            color: #9ca3af; /* Light gray */
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 2px;
+        }
+        .transcript-action-btn:hover {
+            color: #4b5563; /* Darker gray */
         }
         .btn {
             padding: 8px 16px; 
@@ -93,6 +111,22 @@
         .history-item .translated { color: #1d4ed8; font-weight: 500; }
         .history-item .timestamp { font-size: 0.75rem; color: #6b7280; text-align: right; }
         #translationHistory { max-height: 200px; overflow-y: auto; }
+        
+        /* Spinner styles */
+        .spinner {
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spinner-border .75s linear infinite;
+            vertical-align: text-bottom;
+            margin-left: 5px;
+        }
+        @keyframes spinner-border {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="flex flex-col items-center min-h-screen p-2 sm:p-4">
@@ -157,13 +191,16 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
+            <div class="transcript-box-container">
                 <h2 id="originalTextLabel" class="text-md font-semibold text-gray-700 mb-1">Bạn nói (Tiếng Anh):</h2>
                 <div id="originalText" class="transcript-box"></div>
+                <button id="clearOriginalTextBtn" class="transcript-action-btn" title="Xóa văn bản gốc"><i class="fas fa-times-circle"></i></button>
             </div>
-            <div>
+            <div class="transcript-box-container">
                 <h2 id="translatedTextLabel" class="text-md font-semibold text-gray-700 mb-1">Dịch (Tiếng Việt):</h2>
                 <div id="translatedText" class="transcript-box"></div>
+                <button id="copyTranslatedTextBtn" class="transcript-action-btn" title="Sao chép bản dịch" style="right: 30px;"><i class="fas fa-copy"></i></button>
+                <button id="clearTranslatedTextBtn" class="transcript-action-btn" title="Xóa bản dịch"><i class="fas fa-times-circle"></i></button>
             </div>
         </div>
          <div class="text-center mb-4">
@@ -215,6 +252,10 @@
         const swapLangButton = document.getElementById('swapLangButton');
         const originalTextLabel = document.getElementById('originalTextLabel');
         const translatedTextLabel = document.getElementById('translatedTextLabel');
+
+        const clearOriginalTextBtn = document.getElementById('clearOriginalTextBtn');
+        const clearTranslatedTextBtn = document.getElementById('clearTranslatedTextBtn');
+        const copyTranslatedTextBtn = document.getElementById('copyTranslatedTextBtn');
 
         // Import Firebase SDKs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
@@ -289,8 +330,8 @@
         const languageMap = {
             "en-US": { name: "Tiếng Anh", geminiName: "English" },
             "vi-VN": { name: "Tiếng Việt", geminiName: "Vietnamese" },
-            "en": { name: "Tiếng Anh", geminiName: "English" }, // For target language
-            "vi": { name: "Tiếng Việt", geminiName: "Vietnamese" } // For target language
+            "en": { name: "Tiếng Anh", geminiName: "English" }, 
+            "vi": { name: "Tiếng Việt", geminiName: "Vietnamese" } 
         };
 
         function updateLanguageLabels() {
@@ -348,7 +389,7 @@
                     
                     if (originalTextBox) {
                         originalTextBox.innerHTML = lastFinalTranscript + finalTranscriptSegment + '<i class="text-gray-400">' + interimTranscript + '</i>';
-                        originalTextBox.scrollTop = originalTextBox.scrollHeight; // Auto-scroll to bottom
+                        originalTextBox.scrollTop = originalTextBox.scrollHeight; 
                     }
 
                     if (finalTranscriptSegment.trim() !== '') {
@@ -512,7 +553,8 @@
             const translatingMsgId = `translating-${Date.now()}`;
             const tempP = document.createElement('p');
             tempP.id = translatingMsgId;
-            tempP.innerHTML = `<span class="text-gray-400">Đang dịch: "${textSegment}"...</span>`;
+            // Sử dụng spinner
+            tempP.innerHTML = `<span class="text-gray-400">Đang dịch: "${textSegment}"<span class="spinner"></span></span>`;
             
             if (translatedTextBox) {
                 translatedTextBox.insertBefore(tempP, translatedTextBox.firstChild);
@@ -530,13 +572,13 @@
                 const translatedText = response.text();
                 console.log("Received translation:", translatedText);
 
-                const finalP = document.getElementById(translatingMsgId); // Lấy lại element placeholder
+                const finalP = document.getElementById(translatingMsgId); 
 
                 if (translatedText) {
-                    currentTranslatedForSave = translatedText.trim() + (currentTranslatedForSave ? " " + currentTranslatedForSave : ""); // Prepend cho lưu trữ
+                    currentTranslatedForSave = translatedText.trim() + (currentTranslatedForSave ? " " + currentTranslatedForSave : ""); 
                     if (finalP) {
                         finalP.innerHTML = `<span class="text-sm font-semibold text-blue-600">${translatedText.trim()}</span>`;
-                    } else if (translatedTextBox) { // Fallback nếu không tìm thấy ID
+                    } else if (translatedTextBox) { 
                          const newP = document.createElement('p');
                          newP.innerHTML = `<span class="text-sm font-semibold text-blue-600">${translatedText.trim()}</span>`;
                          translatedTextBox.insertBefore(newP, translatedTextBox.firstChild);
@@ -560,6 +602,43 @@
                 }
             }
         }
+
+        // --- UI Action Buttons ---
+        if(clearOriginalTextBtn) {
+            clearOriginalTextBtn.addEventListener('click', () => {
+                if(originalTextBox) originalTextBox.innerHTML = '';
+                lastFinalTranscript = ""; // Reset
+                currentOriginalForSave = "";
+                showUIMessage("Đã xóa văn bản gốc.", 1500);
+            });
+        }
+
+        if(clearTranslatedTextBtn) {
+            clearTranslatedTextBtn.addEventListener('click', () => {
+                if(translatedTextBox) translatedTextBox.innerHTML = '';
+                currentTranslatedForSave = "";
+                if(saveTranslationButton) saveTranslationButton.style.display = 'none';
+                showUIMessage("Đã xóa bản dịch.", 1500);
+            });
+        }
+
+        if(copyTranslatedTextBtn) {
+            copyTranslatedTextBtn.addEventListener('click', () => {
+                if(translatedTextBox && translatedTextBox.textContent.trim() !== "") {
+                    // Lấy textContent để loại bỏ HTML tags
+                    const textToCopy = translatedTextBox.textContent.replace(/Đang dịch:.*?\.\.\./g, '').trim(); // Loại bỏ các thông báo "Đang dịch"
+                    navigator.clipboard.writeText(textToCopy)
+                        .then(() => showUIMessage("Đã sao chép bản dịch!", 1500))
+                        .catch(err => {
+                            console.error('Lỗi sao chép: ', err);
+                            showUIMessage("Lỗi khi sao chép.", 2000);
+                        });
+                } else {
+                    showUIMessage("Không có gì để sao chép.", 1500);
+                }
+            });
+        }
+
 
         // Firebase Auth
         if (registerButton) {
@@ -708,7 +787,7 @@
                     historyItem.appendChild(originalP);
                     historyItem.appendChild(translatedP);
                     historyItem.appendChild(timestampP);
-                    translationHistoryDiv.insertBefore(historyItem, translationHistoryDiv.firstChild); // Prepend history item
+                    translationHistoryDiv.insertBefore(historyItem, translationHistoryDiv.firstChild); 
                 });
             }, (error) => {
                 console.error("Lỗi khi tải lịch sử: ", error);
