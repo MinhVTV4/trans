@@ -361,12 +361,12 @@
         // Speech Recognition & Translation
         let recognition;
         let isRecording = false;
-        const USER_PAUSE_TIMEOUT = 800; 
+        const USER_PAUSE_TIMEOUT = 1500; 
         let userPauseTimer; 
         
-        let currentLiveTranscript = ""; // Stores the live evolving transcript from the current event for raw display
-        let accumulatedFinalTranscript = ""; // Accumulates ONLY final results to form segments for staging
-        let lastQueuedStagingSegment = ""; // To prevent re-queuing the exact same staging segment
+        let currentLiveTranscript = ""; // Displays the most current speech (interim + final) in rawTranscriptBox
+        let segmentForStaging = ""; // Accumulates text that is likely a complete segment, ready for staging
+        let lastQueuedStagingContent = ""; // Prevents re-queuing the exact same content
 
 
         // --- Translation Queue ---
@@ -437,46 +437,57 @@
                     if (saveTranslationButton) saveTranslationButton.style.display = 'none'; 
                     
                     currentLiveTranscript = "";
-                    accumulatedFinalTranscript = "";
-                    lastQueuedStagingSegment = "";
+                    segmentForStaging = "";
+                    lastQueuedStagingContent = "";
                     if (rawTranscriptBox) rawTranscriptBox.innerHTML = ""; 
                     if (originalTextBox) originalTextBox.innerHTML = "";
                     if (translatedTextBox) translatedTextBox.innerHTML = "";
                     translationQueue = []; 
                     
                     clearTimeout(maxUtteranceLengthTimer); 
-                    maxUtteranceLengthTimer = setTimeout(finalizeAndStageCurrentSegment, MAX_UTTERANCE_LENGTH_MS);
+                    maxUtteranceLengthTimer = setTimeout(tryStageTranscript, MAX_UTTERANCE_LENGTH_MS);
                 };
 
                 recognition.onresult = (event) => {
                     clearTimeout(userPauseTimer); 
-                    clearTimeout(maxUtteranceLengthTimer); // Reset max utterance timer on any new result
-                    maxUtteranceLengthTimer = setTimeout(finalizeAndStageCurrentSegment, MAX_UTTERANCE_LENGTH_MS);
+                    clearTimeout(maxUtteranceLengthTimer);
+                    maxUtteranceLengthTimer = setTimeout(tryStageTranscript, MAX_UTTERANCE_LENGTH_MS);
 
-                    let interim_transcript = '';
+                    let interimResult = '';
+                    let finalPieceFromEvent = '';
+
                     for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        const transcriptPart = event.results[i][0].transcript;
                         if (event.results[i].isFinal) {
-                            accumulatedFinalTranscript += event.results[i][0].transcript + ' ';
-                            currentLiveTranscript = accumulatedFinalTranscript; // Update live with new final
-                            finalizeAndStageCurrentSegment(true); // Attempt to stage now that we have a final part
+                            finalPieceFromEvent += transcriptPart + ' '; // Add space for joining
                         } else {
-                            interim_transcript += event.results[i][0].transcript;
+                            interimResult += transcriptPart;
                         }
                     }
-                    currentLiveTranscript = accumulatedFinalTranscript + interim_transcript; // Show accumulated final + current interim
 
+                    if (finalPieceFromEvent) {
+                        segmentForStaging += finalPieceFromEvent;
+                        currentLiveTranscript = segmentForStaging; // Raw box shows what's finalized so far
+                        tryStageTranscript(true); // Attempt to stage now
+                    } else if (interimResult) {
+                        currentLiveTranscript = segmentForStaging + interimResult; // Show finalized + current interim
+                    }
+                    
                     if (rawTranscriptBox) {
                         rawTranscriptBox.innerHTML = currentLiveTranscript.replace(/\n/g, "<br>");
                         rawTranscriptBox.scrollTop = rawTranscriptBox.scrollHeight; 
                     }
 
-                    if (interim_transcript.trim() !== '') { // If there's still interim, set pause timer
+                    if (interimResult.trim() !== "" && !finalPieceFromEvent) { 
                          userPauseTimer = setTimeout(() => {
                             if (isRecording) {
-                                console.log("User pause, finalizing current transcript.");
-                                // The interim part is already part of currentLiveTranscript
-                                finalizedTranscriptForStaging = currentLiveTranscript.trim(); // Use the latest live transcript
-                                stageCurrentTranscriptIfNeeded(true); 
+                                console.log("User pause, attempting to stage current live transcript.");
+                                // On user pause, consider the current live transcript (which includes interim)
+                                // as a potential segment if it's new.
+                                if (currentLiveTranscript.trim() !== segmentForStaging.trim()) {
+                                     segmentForStaging = currentLiveTranscript.trim() + " "; // Add the interim to staging
+                                }
+                                tryStageTranscript(true); 
                             }
                         }, USER_PAUSE_TIMEOUT);
                     }
@@ -495,8 +506,10 @@
                     clearTimeout(userPauseTimer);
                     if (isRecording) { 
                         console.log("Speech recognition ended.");
-                        finalizedTranscriptForStaging = currentLiveTranscript.trim(); // Ensure any last bit is staged
-                        stageCurrentTranscriptIfNeeded(true); 
+                        if (currentLiveTranscript.trim() !== segmentForStaging.trim() && currentLiveTranscript.trim()) {
+                           segmentForStaging = currentLiveTranscript.trim() + " ";
+                        }
+                        tryStageTranscript(true); 
                         processTranslationQueue(); 
                     } else {
                         console.log("Speech recognition ended by user.");
@@ -518,19 +531,16 @@
             }
         }
         
-        // This function is called by timers or when a final result comes in
-        function finalizeAndStageCurrentSegment(force = false) {
-            // The "segment to stage" is whatever has been finalized in accumulatedFinalTranscript
-            // that hasn't been staged yet.
-            // Or, if forced (by timer/stop), it's the currentLiveTranscript.
-            let segmentToAttempt;
-            if (force) {
-                segmentToAttempt = currentLiveTranscript.trim();
-            } else {
-                segmentToAttempt = accumulatedFinalTranscript.trim();
-            }
+        function tryStageTranscript(isForced = false) {
+            const segmentToAttempt = segmentForStaging.trim();
 
-            if (segmentToAttempt && segmentToAttempt !== lastQueuedStagingSegment) {
+            if (segmentToAttempt && (segmentToAttempt !== lastQueuedStagingSegment || isForced )) {
+                 if (segmentToAttempt === lastQueuedStagingSegment && !isForced) {
+                    console.log("Skipping already queued segment (not forced):", segmentToAttempt);
+                    clearTimeout(maxUtteranceLengthTimer);
+                    if (isRecording) maxUtteranceLengthTimer = setTimeout(tryStageTranscript, MAX_UTTERANCE_LENGTH_MS);
+                    return;
+                }
                 console.log("Staging segment:", segmentToAttempt);
                 lastQueuedStagingSegment = segmentToAttempt; 
 
@@ -541,29 +551,21 @@
                 });
                 processTranslationQueue(); 
 
-                // Reset accumulatedFinalTranscript as it has been staged.
-                // currentLiveTranscript will be rebuilt from new interim/final results.
-                accumulatedFinalTranscript = ""; 
-                // Update currentLiveTranscript to remove the staged part if it was purely final
-                // This is tricky. For now, let's rely on onresult to rebuild currentLiveTranscript.
-                // If rawTranscriptBox is cleared here, it might look like data loss.
-                // Let's clear originalTextBox (staging box) instead.
-                if(originalTextBox) originalTextBox.innerHTML = '';
-
+                segmentForStaging = ""; // Reset for the next segment
+                // currentLiveTranscript should ideally reflect only ongoing interim after staging
+                // This part is tricky; for now, let rawTranscriptBox be the primary view of live speech.
+                // We might not need to clear originalTextBox here if processTranslationQueue handles its display.
 
                 clearTimeout(maxUtteranceLengthTimer);
                 if (isRecording) { 
-                    maxUtteranceLengthTimer = setTimeout(finalizeAndStageCurrentSegment, MAX_UTTERANCE_LENGTH_MS);
+                    maxUtteranceLengthTimer = setTimeout(tryStageTranscript, MAX_UTTERANCE_LENGTH_MS);
                 }
-            } else if (isRecording) { // If nothing new to stage, just reset the max utterance timer
+            } else if (isRecording) { 
                  clearTimeout(maxUtteranceLengthTimer);
-                 maxUtteranceLengthTimer = setTimeout(finalizeAndStageCurrentSegment, MAX_UTTERANCE_LENGTH_MS);
+                 maxUtteranceLengthTimer = setTimeout(tryStageTranscript, MAX_UTTERANCE_LENGTH_MS);
             }
         }
         
-        // Renamed from stageCurrentTranscriptIfNeeded for clarity
-        const stageCurrentTranscriptIfNeeded = finalizeAndStageCurrentSegment;
-
         
         // Initial setup
         updateLanguageLabels();
@@ -609,7 +611,7 @@
                     if (originalTextBox) originalTextBox.innerHTML = ''; 
                     if (translatedTextBox) translatedTextBox.innerHTML = ''; 
                     currentLiveTranscript = ""; 
-                    accumulatedFinalTranscript = "";
+                    segmentForStaging = "";
                     lastQueuedStagingSegment = "";
                     currentOriginalForSave = ""; 
                     currentTranslatedForSave = ""; 
@@ -633,11 +635,10 @@
         if (stopButton) {
             stopButton.addEventListener('click', () => {
                 stopSpeechRecognition(); 
-                // On manual stop, ensure the very last live transcript is staged if not already
-                if (currentLiveTranscript.trim() !== accumulatedFinalTranscript.trim() && currentLiveTranscript.trim() !== "") {
-                     accumulatedFinalTranscript = currentLiveTranscript.trim(); // Consider the whole live as final
+                if (currentLiveTranscript.trim() !== segmentForStaging.trim() && currentLiveTranscript.trim() !== "") {
+                     segmentForStaging = currentLiveTranscript.trim();
                 }
-                stageCurrentTranscriptIfNeeded(true); 
+                tryStageTranscript(true); 
                 processTranslationQueue(); 
                 showUIMessage("Đã dừng ghi âm.", 2000);
             });
@@ -708,6 +709,7 @@
                 }
                 
                 if (accumulatedTranslatedTextForSegment.trim()) {
+                    // For saving, we prepend because translation items are displayed prepended
                     currentOriginalForSave = textSegment + (currentOriginalForSave ? "\n" + currentOriginalForSave : "");
                     currentTranslatedForSave = accumulatedTranslatedTextForSegment.trim() + (currentTranslatedForSave ? "\n" + currentTranslatedForSave : ""); 
                 }
@@ -734,6 +736,8 @@
         if(clearOriginalTextBtn) {
              clearOriginalTextBtn.addEventListener('click', () => {
                 if(originalTextBox) originalTextBox.innerHTML = '';
+                // Also clear the lastQueuedStagingSegment so the next segment can be staged
+                lastQueuedStagingSegment = ""; 
                 showUIMessage("Đã xóa văn bản chuẩn bị dịch.", 1500);
             });
         }
@@ -741,8 +745,9 @@
             clearRawTranscriptBtn.addEventListener('click', () => {
                 if(rawTranscriptBox) rawTranscriptBox.innerHTML = '';
                 currentLiveTranscript = ""; 
-                finalizedTranscriptForStaging = "";
+                segmentForStaging = ""; // Clear the staging buffer as well
                 lastQueuedStagingSegment = "";
+                accumulatedFinalTranscript = ""; // Clear this too
                 showUIMessage("Đã xóa lời nói thô.", 1500);
             });
         }
