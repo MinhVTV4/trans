@@ -361,11 +361,11 @@
         // Speech Recognition & Translation
         let recognition;
         let isRecording = false;
-        const USER_PAUSE_TIMEOUT = 1500; // Thời gian người dùng dừng nói để chốt câu từ raw buffer
+        const USER_PAUSE_TIMEOUT = 1500; 
         let userPauseTimer; 
         
-        let rawTranscriptBuffer = []; // Mảng lưu các object {text, isFinal}
-        let lastProcessedBufferIndex = 0; // Chỉ số cuối cùng đã xử lý trong rawTranscriptBuffer
+        let rawTranscriptBuffer = []; 
+        let lastProcessedBufferLength = 0; // Theo dõi độ dài của buffer đã được xử lý
 
 
         // --- Translation Queue ---
@@ -382,9 +382,9 @@
             const item = translationQueue.shift(); 
             try {
                 if (item) {
-                    if(originalTextBox) { // Hiển thị đoạn đang chuẩn bị dịch
+                    if(originalTextBox) { 
                         const p = document.createElement('p');
-                        p.textContent = item.segmentToTranslate; // Sử dụng segment đã được "chốt"
+                        p.textContent = item.segmentToTranslate; 
                         originalTextBox.innerHTML = ''; 
                         originalTextBox.appendChild(p);
                         originalTextBox.scrollTop = originalTextBox.scrollHeight;
@@ -436,56 +436,49 @@
                     if (saveTranslationButton) saveTranslationButton.style.display = 'none'; 
                     
                     rawTranscriptBuffer = [];
-                    lastProcessedBufferIndex = 0;
+                    lastProcessedBufferLength = 0;
                     if (rawTranscriptBox) rawTranscriptBox.innerHTML = ""; 
                     if (originalTextBox) originalTextBox.innerHTML = "";
                     if (translatedTextBox) translatedTextBox.innerHTML = "";
                     translationQueue = []; 
                     
                     clearTimeout(maxUtteranceLengthTimer); 
-                    maxUtteranceLengthTimer = setTimeout(processRawBufferToStagingBox, MAX_UTTERANCE_LENGTH_MS);
+                    maxUtteranceLengthTimer = setTimeout(() => processRawBufferToStagingBox(true), MAX_UTTERANCE_LENGTH_MS);
                 };
 
                 recognition.onresult = (event) => {
                     clearTimeout(userPauseTimer); 
-                    clearTimeout(maxUtteranceLengthTimer); // Reset timer ngắt quãng chủ động
-                    maxUtteranceLengthTimer = setTimeout(processRawBufferToStagingBox, MAX_UTTERANCE_LENGTH_MS);
+                    clearTimeout(maxUtteranceLengthTimer);
+                    maxUtteranceLengthTimer = setTimeout(() => processRawBufferToStagingBox(true), MAX_UTTERANCE_LENGTH_MS);
 
-                    let currentRawDisplay = "";
+                    let currentEventInterim = "";
                     for (let i = event.resultIndex; i < event.results.length; ++i) {
                         const transcriptPart = event.results[i][0].transcript;
                         const isFinalPart = event.results[i].isFinal;
                         
-                        rawTranscriptBuffer.push({ text: transcriptPart, isFinal: isFinalPart });
-                        currentRawDisplay += transcriptPart;
+                        // Chỉ thêm vào buffer nếu nó chưa tồn tại (để tránh lặp lại do event)
+                        // Cách đơn giản là kiểm tra phần tử cuối cùng, nhưng có thể cần phức tạp hơn
+                        // if (rawTranscriptBuffer.length === 0 || rawTranscriptBuffer[rawTranscriptBuffer.length -1].text !== transcriptPart) {
+                           rawTranscriptBuffer.push({ text: transcriptPart, isFinal: isFinalPart, timestamp: Date.now() });
+                        // }
                         
-                        if (isFinalPart) {
-                            // Khi có isFinal, cố gắng xử lý ngay để đưa vào staging box
-                            processRawBufferToStagingBox(true); // true để báo là có isFinal
+                        if (!isFinalPart) {
+                            currentEventInterim += transcriptPart;
+                        } else {
+                            processRawBufferToStagingBox(true); 
                         }
                     }
                     
                     if (rawTranscriptBox) {
-                        // Hiển thị toàn bộ buffer (bao gồm cả final và interim mới nhất)
-                        let fullRawText = "";
-                        rawTranscriptBuffer.forEach(item => fullRawText += item.text);
-                        // Thêm phần interim của event hiện tại nếu nó chưa final (để hiển thị mượt hơn)
-                        if (event.results[event.results.length-1] && !event.results[event.results.length-1].isFinal) {
-                             fullRawText = rawTranscriptBuffer.map(i=>i.text).join("") + event.results[event.results.length-1][0].transcript;
-                        } else {
-                             fullRawText = rawTranscriptBuffer.map(i=>i.text).join("");
-                        }
-
-                        rawTranscriptBox.innerHTML = fullRawText.replace(/\n/g, "<br>");
+                        rawTranscriptBox.innerHTML = rawTranscriptBuffer.map(item => item.text).join("").replace(/\n/g, "<br>");
                         rawTranscriptBox.scrollTop = rawTranscriptBox.scrollHeight; 
                     }
 
-                    // Đặt timer cho trường hợp người dùng dừng nói
-                    if (!event.results[event.resultIndex].isFinal && currentRawDisplay.trim() !== "") {
+                    if (currentEventInterim.trim() !== "") { // Chỉ đặt userPauseTimer nếu có interim mới
                          userPauseTimer = setTimeout(() => {
                             if (isRecording) {
                                 console.log("User pause detected, processing raw buffer.");
-                                processRawBufferToStagingBox(true); // Coi như là final khi người dùng dừng
+                                processRawBufferToStagingBox(true); 
                             }
                         }, USER_PAUSE_TIMEOUT);
                     }
@@ -496,7 +489,6 @@
                     console.error("Speech recognition error:", event.error, event.message);
                     clearTimeout(maxUtteranceLengthTimer);
                     clearTimeout(userPauseTimer);
-                    // ... (error handling as before) ...
                     stopSpeechRecognition(); 
                 };
 
@@ -505,7 +497,7 @@
                     clearTimeout(userPauseTimer);
                     if (isRecording) { 
                         console.log("Speech recognition ended.");
-                        processRawBufferToStagingBox(true); // Xử lý phần còn lại khi kết thúc
+                        processRawBufferToStagingBox(true); 
                         processTranslationQueue(); 
                     } else {
                         console.log("Speech recognition ended by user.");
@@ -523,63 +515,51 @@
                     }
                 };
             } else {
-                // ... (browser not supported) ...
+                 // ... (browser not supported) ...
             }
         }
         
-        // Hàm xử lý rawTranscriptBuffer và đưa vào hàng đợi dịch
-        function processRawBufferToStagingBox(forceProcessAll = false) {
+        function processRawBufferToStagingBox(forceProcess = false) {
             let segmentToStage = "";
-            let newProcessedIndex = lastProcessedBufferIndex;
+            let startIndexForSegment = lastProcessedBufferLength;
+            let endIndexForSegment = lastProcessedBufferLength;
 
-            for (let i = lastProcessedBufferIndex; i < rawTranscriptBuffer.length; i++) {
+            for (let i = lastProcessedBufferLength; i < rawTranscriptBuffer.length; i++) {
                 segmentToStage += rawTranscriptBuffer[i].text;
-                newProcessedIndex = i + 1;
-                // Điều kiện "chốt" câu: gặp isFinal, hoặc bị force, hoặc có dấu câu kết thúc (có thể thêm sau)
-                if (rawTranscriptBuffer[i].isFinal || forceProcessAll) {
-                    if (segmentToStage.trim()) {
-                        console.log("Staging segment from raw buffer:", segmentToStage.trim());
+                endIndexForSegment = i + 1;
+
+                if (rawTranscriptBuffer[i].isFinal || (forceProcess && i === rawTranscriptBuffer.length - 1)) {
+                    const finalSegment = segmentToStage.trim();
+                    if (finalSegment) {
+                        console.log("Staging segment:", finalSegment);
                         
-                        const fullOriginalTextForSave = rawTranscriptBuffer.slice(0, newProcessedIndex).map(item => item.text).join("").trim();
+                        // fullOriginalTextForSave nên là toàn bộ nội dung đã được "chốt" vào staging box
+                        // Chúng ta sẽ xây dựng nó từ các segment đã được queue.
+                        // Hoặc, đơn giản hơn, là toàn bộ rawTranscriptBuffer hiện tại.
+                        const fullOriginalTextForSave = rawTranscriptBuffer.map(item => item.text).join("").trim();
+
 
                         const placeholderId = `translating-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
                         translationQueue.push({ 
-                            segmentToTranslate: segmentToStage.trim(), 
-                            fullOriginalTextForSave: fullOriginalTextForSave, // Lưu toàn bộ raw transcript đã xử lý
+                            segmentToTranslate: finalSegment, 
+                            fullOriginalTextForSave: fullOriginalTextForSave, 
                             placeholderId: placeholderId 
                         });
                         processTranslationQueue(); 
 
-                        segmentToStage = ""; // Reset cho đoạn tiếp theo
-                        lastProcessedBufferIndex = newProcessedIndex; // Cập nhật vị trí đã xử lý
+                        lastProcessedBufferLength = endIndexForSegment; 
+                        segmentToStage = ""; // Reset for next segment
 
-                        // Reset maxUtteranceLengthTimer vì đã có một đoạn được xử lý
                         clearTimeout(maxUtteranceLengthTimer);
                         if (isRecording) { 
                             maxUtteranceLengthTimer = setTimeout(() => processRawBufferToStagingBox(true), MAX_UTTERANCE_LENGTH_MS);
                         }
                     }
-                    if (forceProcessAll && i < rawTranscriptBuffer.length -1) { 
-                        // Nếu force và còn buffer, tiếp tục xử lý ngay
-                        // No-op, vòng lặp sẽ tiếp tục
-                    } else if (forceProcessAll) {
-                        break; // Đã xử lý hết khi force
-                    }
+                    if (forceProcess && i === rawTranscriptBuffer.length - 1) break; 
+                    if (!forceProcess && rawTranscriptBuffer[i].isFinal) break; // Process one final segment at a time unless forced
                 }
             }
-             // Nếu forceProcessAll và vẫn còn segmentToStage chưa được xử lý (do không có isFinal cuối cùng)
-            if (forceProcessAll && segmentToStage.trim()) {
-                 console.log("Staging remaining segment from raw buffer (force):", segmentToStage.trim());
-                 const fullOriginalTextForSave = rawTranscriptBuffer.map(item => item.text).join("").trim();
-                 const placeholderId = `translating-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-                 translationQueue.push({ 
-                    segmentToTranslate: segmentToStage.trim(), 
-                    fullOriginalTextForSave: fullOriginalTextForSave,
-                    placeholderId: placeholderId 
-                 });
-                 processTranslationQueue();
-                 lastProcessedBufferIndex = rawTranscriptBuffer.length;
-            }
+            // If forced and loop finished, any remaining segmentToStage (if not empty) was handled by the last iteration.
         }
         
         // Initial setup
@@ -628,7 +608,7 @@
                     if (originalTextBox) originalTextBox.innerHTML = ''; 
                     if (translatedTextBox) translatedTextBox.innerHTML = ''; 
                     rawTranscriptBuffer = []; 
-                    lastProcessedBufferIndex = 0;
+                    lastProcessedBufferLength = 0;
                     currentOriginalForSave = ""; 
                     currentTranslatedForSave = ""; 
                     translationQueue = []; 
@@ -687,7 +667,7 @@
                  targetElement.innerHTML = `<span class="text-gray-400">Đang dịch: "${textSegment}"<span class="spinner"></span></span>`;
             } else { 
                 const tempP = document.createElement('p');
-                tempP.id = placeholderId; // Gán ID để có thể tìm thấy sau này
+                tempP.id = placeholderId; 
                 tempP.innerHTML = `<span class="text-gray-400">Đang dịch: "${textSegment}"<span class="spinner"></span></span>`;
                 if (translatedTextBox) translatedTextBox.insertBefore(tempP, translatedTextBox.firstChild);
             }
@@ -722,8 +702,11 @@
                     } 
                 }
                 
+                // Nối vào đầu để giữ thứ tự hiển thị (mới nhất ở trên)
                 currentTranslatedForSave = accumulatedTranslatedTextForSegment.trim() + (currentTranslatedForSave ? "\n" + currentTranslatedForSave : ""); 
+                // Cập nhật currentOriginalForSave với toàn bộ nội dung gốc đã được xử lý cho đến segment này
                 currentOriginalForSave = fullOriginalTextForSave; 
+
 
                 if(auth.currentUser && saveTranslationButton && accumulatedTranslatedTextForSegment.trim() !== "") {
                     saveTranslationButton.style.display = 'inline-block';
@@ -753,7 +736,7 @@
             clearRawTranscriptBtn.addEventListener('click', () => {
                 if(rawTranscriptBox) rawTranscriptBox.innerHTML = '';
                 rawTranscriptBuffer = [];
-                lastProcessedBufferIndex = 0;
+                lastProcessedBufferLength = 0;
                 showUIMessage("Đã xóa lời nói thô.", 1500);
             });
         }
