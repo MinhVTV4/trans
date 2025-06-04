@@ -551,13 +551,12 @@
             currentOriginalForSave = fullOriginalText.trim(); 
 
             const translatingMsgId = `translating-${Date.now()}`;
-            const tempP = document.createElement('p');
-            tempP.id = translatingMsgId;
-            // Sử dụng spinner
-            tempP.innerHTML = `<span class="text-gray-400">Đang dịch: "${textSegment}"<span class="spinner"></span></span>`;
+            const placeholderP = document.createElement('p');
+            placeholderP.id = translatingMsgId;
+            placeholderP.innerHTML = `<span class="text-gray-400">Đang dịch: "${textSegment}"<span class="spinner"></span></span>`;
             
             if (translatedTextBox) {
-                translatedTextBox.insertBefore(tempP, translatedTextBox.firstChild);
+                translatedTextBox.insertBefore(placeholderP, translatedTextBox.firstChild);
             }
 
             try {
@@ -567,37 +566,63 @@
                 const prompt = `Provide a direct translation of the following ${sourceLangForPrompt} text to ${targetLangForPrompt}, without explanations or additional context: "${textSegment}"`;
                 
                 console.log("Sending prompt to Gemini:", prompt);
-                const result = await generativeAIModel.generateContent(prompt);
-                const response = result.response;
-                const translatedText = response.text();
-                console.log("Received translation:", translatedText);
+                
+                // Sử dụng generateContentStream
+                const streamResult = await generativeAIModel.generateContentStream(prompt);
 
-                const finalP = document.getElementById(translatingMsgId); 
+                let accumulatedTranslatedText = "";
+                let firstChunk = true;
+                const targetElement = document.getElementById(translatingMsgId); // Lấy lại placeholder
 
-                if (translatedText) {
-                    currentTranslatedForSave = translatedText.trim() + (currentTranslatedForSave ? " " + currentTranslatedForSave : ""); 
-                    if (finalP) {
-                        finalP.innerHTML = `<span class="text-sm font-semibold text-blue-600">${translatedText.trim()}</span>`;
-                    } else if (translatedTextBox) { 
-                         const newP = document.createElement('p');
-                         newP.innerHTML = `<span class="text-sm font-semibold text-blue-600">${translatedText.trim()}</span>`;
-                         translatedTextBox.insertBefore(newP, translatedTextBox.firstChild);
-                    }
-                    if(auth.currentUser && saveTranslationButton) saveTranslationButton.style.display = 'inline-block';
-                } else {
-                    if (finalP) finalP.innerHTML = `<span class="text-red-500">[Không nhận được bản dịch]</span>`;
-                    throw new Error("Không nhận được bản dịch từ AI.");
+                if (!targetElement) { // Fallback nếu không tìm thấy placeholder
+                    console.warn("Placeholder element not found for streaming.");
+                    // Có thể tạo một element mới ở đây nếu cần
                 }
 
+                for await (const item of streamResult.stream) {
+                    const chunkText = item.text();
+                    console.log("Stream chunk:", chunkText);
+                    accumulatedTranslatedText += chunkText;
+                    
+                    if (targetElement) {
+                        if (firstChunk) {
+                            targetElement.innerHTML = `<span class="text-sm font-semibold text-blue-600">${chunkText.trim()}</span>`;
+                            firstChunk = false;
+                        } else {
+                            targetElement.querySelector('span.text-blue-600').textContent += chunkText;
+                        }
+                    } else if (translatedTextBox) { // Fallback nếu không có targetElement
+                        if (firstChunk) {
+                            const newP = document.createElement('p');
+                            newP.innerHTML = `<span class="text-sm font-semibold text-blue-600">${chunkText.trim()}</span>`;
+                            translatedTextBox.insertBefore(newP, translatedTextBox.firstChild);
+                            firstChunk = false;
+                        } else {
+                            const lastP = translatedTextBox.querySelector('p:first-child span.text-blue-600');
+                            if (lastP) lastP.textContent += chunkText;
+                        }
+                    }
+                }
+                
+                currentTranslatedForSave = accumulatedTranslatedText.trim() + (currentTranslatedForSave ? " " + currentTranslatedForSave : ""); 
+
+                if(auth.currentUser && saveTranslationButton && accumulatedTranslatedText.trim() !== "") {
+                    saveTranslationButton.style.display = 'inline-block';
+                }
+                if (accumulatedTranslatedText.trim() === "" && targetElement) { // Nếu không có text nào được stream
+                     targetElement.innerHTML = `<span class="text-red-500">[Không nhận được bản dịch]</span>`;
+                }
+
+
             } catch (error) {
-                console.error("Lỗi khi dịch (Firebase AI Logic):", error);
-                showUIMessage("Lỗi khi dịch (AI): " + error.message, 7000);
+                console.error("Lỗi khi dịch (Firebase AI Logic Stream):", error);
+                showUIMessage("Lỗi khi dịch (AI Stream): " + error.message, 7000);
                 const errorP = document.getElementById(translatingMsgId);
                 if (errorP) {
-                    errorP.innerHTML = `<span class="text-red-500">[Lỗi dịch (AI): ${error.message}]</span>`;
+                    errorP.innerHTML = `<span class="text-red-500">[Lỗi dịch (AI Stream): ${error.message}]</span>`;
                 } else if (translatedTextBox) {
                      const newErrorP = document.createElement('p');
-                     newErrorP.innerHTML = `<span class="text-red-500">[Lỗi dịch (AI) cho "${textSegment}": ${error.message}]</span>`;
+                     newErrorP.innerHTML = `<span class="text-red-500">[Lỗi dịch (AI Stream) cho "${textSegment}": ${error.message}]</span>`;
                      translatedTextBox.insertBefore(newErrorP, translatedTextBox.firstChild);
                 }
             }
@@ -607,7 +632,7 @@
         if(clearOriginalTextBtn) {
             clearOriginalTextBtn.addEventListener('click', () => {
                 if(originalTextBox) originalTextBox.innerHTML = '';
-                lastFinalTranscript = ""; // Reset
+                lastFinalTranscript = ""; 
                 currentOriginalForSave = "";
                 showUIMessage("Đã xóa văn bản gốc.", 1500);
             });
@@ -625,14 +650,32 @@
         if(copyTranslatedTextBtn) {
             copyTranslatedTextBtn.addEventListener('click', () => {
                 if(translatedTextBox && translatedTextBox.textContent.trim() !== "") {
-                    // Lấy textContent để loại bỏ HTML tags
-                    const textToCopy = translatedTextBox.textContent.replace(/Đang dịch:.*?\.\.\./g, '').trim(); // Loại bỏ các thông báo "Đang dịch"
-                    navigator.clipboard.writeText(textToCopy)
-                        .then(() => showUIMessage("Đã sao chép bản dịch!", 1500))
-                        .catch(err => {
-                            console.error('Lỗi sao chép: ', err);
-                            showUIMessage("Lỗi khi sao chép.", 2000);
-                        });
+                    const textToCopy = Array.from(translatedTextBox.querySelectorAll('p span.text-blue-600'))
+                                                .map(span => span.textContent.trim())
+                                                .join('\n'); 
+
+                        if (textToCopy) {
+                            navigator.clipboard.writeText(textToCopy)
+                                .then(() => showUIMessage("Đã sao chép bản dịch!", 1500))
+                                .catch(err => {
+                                    console.error('Lỗi sao chép: ', err);
+                                    try {
+                                        const textArea = document.createElement("textarea");
+                                        textArea.value = textToCopy;
+                                        document.body.appendChild(textArea);
+                                        textArea.focus();
+                                        textArea.select();
+                                        document.execCommand('copy');
+                                        document.body.removeChild(textArea);
+                                        showUIMessage("Đã sao chép bản dịch! (fallback)", 1500);
+                                    } catch (fallbackErr) {
+                                        console.error('Lỗi sao chép (fallback): ', fallbackErr);
+                                        showUIMessage("Lỗi khi sao chép.", 2000);
+                                    }
+                                });
+                        } else {
+                             showUIMessage("Không có nội dung dịch để sao chép.", 1500);
+                        }
                 } else {
                     showUIMessage("Không có gì để sao chép.", 1500);
                 }
