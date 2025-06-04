@@ -345,9 +345,34 @@
         // Speech Recognition & Translation
         let recognition;
         let isRecording = false;
-        const FINAL_TRANSCRIPT_TIMEOUT = 700; 
+        const FINAL_TRANSCRIPT_TIMEOUT = 1000; 
         let finalTranscriptTimer;
         let lastFinalTranscript = ""; 
+
+        // --- Translation Queue ---
+        let translationQueue = [];
+        let isProcessingQueue = false;
+
+        async function processTranslationQueue() {
+            if (isProcessingQueue || translationQueue.length === 0) {
+                return;
+            }
+            isProcessingQueue = true;
+
+            const item = translationQueue.shift(); // Get the oldest item
+            if (item) {
+                await sendToTranslateWithFirebaseAI(item.segment, item.fullText, item.placeholderId);
+            }
+
+            isProcessingQueue = false;
+            // If there are more items, process them
+            if (translationQueue.length > 0) {
+                 // Call recursively, but allow event loop to breathe
+                setTimeout(processTranslationQueue, 0);
+            }
+        }
+        // --- End Translation Queue ---
+
 
         function initializeSpeechRecognition() {
             if (recognition) { 
@@ -372,6 +397,7 @@
                     if (permissionNotice) permissionNotice.style.display = 'none';
                     if (saveTranslationButton) saveTranslationButton.style.display = 'none'; 
                     lastFinalTranscript = ""; 
+                    translationQueue = []; // Clear queue on new recording
                 };
 
                 recognition.onresult = (event) => {
@@ -397,7 +423,23 @@
                         finalTranscriptTimer = setTimeout(() => {
                             if (currentFullFinalTranscript.trim() !== '' && currentFullFinalTranscript !== lastFinalTranscript.trim()) { 
                                 console.log("Final transcript segment to send:", finalTranscriptSegment.trim());
-                                sendToTranslateWithFirebaseAI(finalTranscriptSegment.trim(), currentFullFinalTranscript); 
+                                
+                                // Add to queue instead of calling directly
+                                const placeholderId = `translating-${Date.now()}`;
+                                const tempP = document.createElement('p');
+                                tempP.id = placeholderId;
+                                tempP.innerHTML = `<span class="text-gray-400">Đang dịch: "${finalTranscriptSegment.trim()}"<span class="spinner"></span></span>`;
+                                if (translatedTextBox) {
+                                    translatedTextBox.insertBefore(tempP, translatedTextBox.firstChild);
+                                }
+
+                                translationQueue.push({ 
+                                    segment: finalTranscriptSegment.trim(), 
+                                    fullText: currentFullFinalTranscript,
+                                    placeholderId: placeholderId 
+                                });
+                                processTranslationQueue(); // Trigger queue processing
+
                                 lastFinalTranscript = currentFullFinalTranscript + " "; 
                             }
                         }, FINAL_TRANSCRIPT_TIMEOUT);
@@ -427,6 +469,8 @@
                 recognition.onend = () => {
                     if (isRecording) {
                         console.log("Speech recognition ended unexpectedly or timed out.");
+                         // Process any remaining items in the queue if recognition stops unexpectedly
+                        processTranslationQueue();
                     } else {
                         console.log("Speech recognition ended by user or completed normally.");
                     }
@@ -500,6 +544,7 @@
                     lastFinalTranscript = ""; 
                     currentOriginalForSave = ""; 
                     currentTranslatedForSave = ""; 
+                    translationQueue = []; // Clear queue
                     try {
                         recognition.lang = sourceLangSelect.value; 
                         recognition.start();
@@ -519,6 +564,8 @@
         if (stopButton) {
             stopButton.addEventListener('click', () => {
                 stopSpeechRecognition();
+                // Process any remaining items in the queue when user stops
+                processTranslationQueue(); 
                 showUIMessage("Đã dừng ghi âm.", 2000);
             });
         }
@@ -541,23 +588,19 @@
         let currentOriginalForSave = "";
         let currentTranslatedForSave = "";
 
-        async function sendToTranslateWithFirebaseAI(textSegment, fullOriginalText) {
+        // Modified to accept placeholderId
+        async function sendToTranslateWithFirebaseAI(textSegment, fullOriginalText, placeholderId) {
             if (!textSegment || textSegment.trim() === '') return;
             if (!generativeAIModel) {
                 showUIMessage("Lỗi: Dịch vụ AI chưa sẵn sàng để dịch.", 5000);
-                if (translatedTextBox) translatedTextBox.innerHTML = `<p><span class="text-red-500">[Lỗi AI Service]</span></p>` + translatedTextBox.innerHTML;
+                const errorP = document.getElementById(placeholderId);
+                if (errorP) errorP.innerHTML = `<span class="text-red-500">[Lỗi AI Service]</span>`;
+                else if (translatedTextBox) translatedTextBox.innerHTML = `<p><span class="text-red-500">[Lỗi AI Service]</span></p>` + translatedTextBox.innerHTML;
                 return;
             }
             currentOriginalForSave = fullOriginalText.trim(); 
 
-            const translatingMsgId = `translating-${Date.now()}`;
-            const placeholderP = document.createElement('p');
-            placeholderP.id = translatingMsgId;
-            placeholderP.innerHTML = `<span class="text-gray-400">Đang dịch: "${textSegment}"<span class="spinner"></span></span>`;
-            
-            if (translatedTextBox) {
-                translatedTextBox.insertBefore(placeholderP, translatedTextBox.firstChild);
-            }
+            const targetElement = document.getElementById(placeholderId); // Use the passed placeholderId
 
             try {
                 const sourceLangForPrompt = languageMap[sourceLangSelect.value]?.geminiName || "auto";
@@ -567,22 +610,15 @@
                 
                 console.log("Sending prompt to Gemini:", prompt);
                 
-                // Sử dụng generateContentStream
                 const streamResult = await generativeAIModel.generateContentStream(prompt);
 
-                let accumulatedTranslatedText = "";
+                let accumulatedTranslatedTextForSegment = "";
                 let firstChunk = true;
-                const targetElement = document.getElementById(translatingMsgId); // Lấy lại placeholder
-
-                if (!targetElement) { // Fallback nếu không tìm thấy placeholder
-                    console.warn("Placeholder element not found for streaming.");
-                    // Có thể tạo một element mới ở đây nếu cần
-                }
 
                 for await (const item of streamResult.stream) {
                     const chunkText = item.text();
                     console.log("Stream chunk:", chunkText);
-                    accumulatedTranslatedText += chunkText;
+                    accumulatedTranslatedTextForSegment += chunkText;
                     
                     if (targetElement) {
                         if (firstChunk) {
@@ -591,40 +627,26 @@
                         } else {
                             targetElement.querySelector('span.text-blue-600').textContent += chunkText;
                         }
-                    } else if (translatedTextBox) { // Fallback nếu không có targetElement
-                        if (firstChunk) {
-                            const newP = document.createElement('p');
-                            newP.innerHTML = `<span class="text-sm font-semibold text-blue-600">${chunkText.trim()}</span>`;
-                            translatedTextBox.insertBefore(newP, translatedTextBox.firstChild);
-                            firstChunk = false;
-                        } else {
-                            const lastP = translatedTextBox.querySelector('p:first-child span.text-blue-600');
-                            if (lastP) lastP.textContent += chunkText;
-                        }
-                    }
+                    } 
+                    // No fallback here as placeholder should always exist if created correctly
                 }
                 
-                currentTranslatedForSave = accumulatedTranslatedText.trim() + (currentTranslatedForSave ? " " + currentTranslatedForSave : ""); 
+                // Prepend the complete translation of this segment to the overall translation for saving
+                currentTranslatedForSave = accumulatedTranslatedTextForSegment.trim() + (currentTranslatedForSave ? " " + currentTranslatedForSave : ""); 
 
-                if(auth.currentUser && saveTranslationButton && accumulatedTranslatedText.trim() !== "") {
+                if(auth.currentUser && saveTranslationButton && accumulatedTranslatedTextForSegment.trim() !== "") {
                     saveTranslationButton.style.display = 'inline-block';
                 }
-                if (accumulatedTranslatedText.trim() === "" && targetElement) { // Nếu không có text nào được stream
+                if (accumulatedTranslatedTextForSegment.trim() === "" && targetElement) { 
                      targetElement.innerHTML = `<span class="text-red-500">[Không nhận được bản dịch]</span>`;
                 }
-
 
             } catch (error) {
                 console.error("Lỗi khi dịch (Firebase AI Logic Stream):", error);
                 showUIMessage("Lỗi khi dịch (AI Stream): " + error.message, 7000);
-                const errorP = document.getElementById(translatingMsgId);
-                if (errorP) {
-                    errorP.innerHTML = `<span class="text-red-500">[Lỗi dịch (AI Stream): ${error.message}]</span>`;
-                } else if (translatedTextBox) {
-                     const newErrorP = document.createElement('p');
-                     newErrorP.innerHTML = `<span class="text-red-500">[Lỗi dịch (AI Stream) cho "${textSegment}": ${error.message}]</span>`;
-                     translatedTextBox.insertBefore(newErrorP, translatedTextBox.firstChild);
-                }
+                if (targetElement) {
+                    targetElement.innerHTML = `<span class="text-red-500">[Lỗi dịch (AI Stream): ${error.message}]</span>`;
+                } 
             }
         }
 
