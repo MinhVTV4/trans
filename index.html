@@ -304,12 +304,12 @@
         // Speech Recognition & Translation
         let recognition;
         let isRecording = false;
-        const FINAL_TRANSCRIPT_TIMEOUT = 1000;
+        const FINAL_TRANSCRIPT_TIMEOUT = 1000; 
         let finalTranscriptTimer;
         let lastFinalTranscript = ""; 
 
         function initializeSpeechRecognition() {
-            if (recognition) { // Stop previous instance if exists
+            if (recognition) { 
                 recognition.stop();
             }
             if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -318,7 +318,7 @@
                 recognition = new SpeechRecognition();
                 recognition.continuous = true;
                 recognition.interimResults = true;
-                recognition.lang = sourceLangSelect.value; // Set language based on selection
+                recognition.lang = sourceLangSelect.value; 
 
                 recognition.onstart = () => {
                     isRecording = true;
@@ -346,7 +346,10 @@
                         }
                     }
                     
-                    if (originalTextBox) originalTextBox.innerHTML = lastFinalTranscript + finalTranscriptSegment + '<i class="text-gray-400">' + interimTranscript + '</i>';
+                    if (originalTextBox) {
+                        originalTextBox.innerHTML = lastFinalTranscript + finalTranscriptSegment + '<i class="text-gray-400">' + interimTranscript + '</i>';
+                        originalTextBox.scrollTop = originalTextBox.scrollHeight; // Auto-scroll to bottom
+                    }
 
                     if (finalTranscriptSegment.trim() !== '') {
                         const currentFullFinalTranscript = (lastFinalTranscript + finalTranscriptSegment).trim();
@@ -411,12 +414,12 @@
         
         // Initial setup
         updateLanguageLabels();
-        initializeSpeechRecognition(); // Initialize with default language
+        initializeSpeechRecognition(); 
 
         sourceLangSelect.addEventListener('change', () => {
             updateLanguageLabels();
-            initializeSpeechRecognition(); // Re-initialize with new source language
-            if (isRecording) stopSpeechRecognition(); // Stop if recording
+            initializeSpeechRecognition(); 
+            if (isRecording) stopSpeechRecognition(); 
             showUIMessage(`Ngôn ngữ nói đổi thành: ${languageMap[sourceLangSelect.value]?.name}`, 2000);
         });
 
@@ -428,9 +431,7 @@
         swapLangButton.addEventListener('click', () => {
             const currentSource = sourceLangSelect.value;
             const currentTarget = targetLangSelect.value;
-
-            // Determine new values based on current mapping
-            // This logic assumes en-US/vi-VN for source and en/vi for target
+            
             if (currentSource === "en-US" && currentTarget === "vi") {
                 sourceLangSelect.value = "vi-VN";
                 targetLangSelect.value = "en";
@@ -438,7 +439,6 @@
                 sourceLangSelect.value = "en-US";
                 targetLangSelect.value = "vi";
             }
-            // Add more specific swaps if needed, or make it more generic
             
             updateLanguageLabels();
             initializeSpeechRecognition();
@@ -460,7 +460,7 @@
                     currentOriginalForSave = ""; 
                     currentTranslatedForSave = ""; 
                     try {
-                        recognition.lang = sourceLangSelect.value; // Ensure correct language before starting
+                        recognition.lang = sourceLangSelect.value; 
                         recognition.start();
                     } catch (e) {
                         console.error("Error starting recognition:", e);
@@ -504,27 +504,19 @@
             if (!textSegment || textSegment.trim() === '') return;
             if (!generativeAIModel) {
                 showUIMessage("Lỗi: Dịch vụ AI chưa sẵn sàng để dịch.", 5000);
-                if (translatedTextBox) translatedTextBox.innerHTML += `<p><span class="text-red-500">[Lỗi AI Service cho "${textSegment}"]</span></p>`;
+                if (translatedTextBox) translatedTextBox.innerHTML = `<p><span class="text-red-500">[Lỗi AI Service]</span></p>` + translatedTextBox.innerHTML;
                 return;
             }
             currentOriginalForSave = fullOriginalText.trim(); 
 
-            let currentTranslatedHTML = translatedTextBox ? translatedTextBox.innerHTML : "";
             const translatingMsgId = `translating-${Date.now()}`;
+            const tempP = document.createElement('p');
+            tempP.id = translatingMsgId;
+            tempP.innerHTML = `<span class="text-gray-400">Đang dịch: "${textSegment}"...</span>`;
             
-            let newContent = "";
-            if (currentTranslatedHTML.endsWith('</p>') || currentTranslatedHTML === '') {
-                 newContent = currentTranslatedHTML + `<p id="${translatingMsgId}"><span class="text-gray-400">Đang dịch: "${textSegment}"...</span></p>`;
-            } else { 
-                const lastP = translatedTextBox.querySelector('p:last-child');
-                if (lastP) {
-                    lastP.innerHTML += `<br/><span id="${translatingMsgId}" class="text-gray-400">Đang dịch: "${textSegment}"...</span>`;
-                    newContent = translatedTextBox.innerHTML; 
-                } else {
-                     newContent = `<p id="${translatingMsgId}"><span class="text-gray-400">Đang dịch: "${textSegment}"...</span></p>`;
-                }
+            if (translatedTextBox) {
+                translatedTextBox.insertBefore(tempP, translatedTextBox.firstChild);
             }
-            if (translatedTextBox) translatedTextBox.innerHTML = newContent;
 
             try {
                 const sourceLangForPrompt = languageMap[sourceLangSelect.value]?.geminiName || "auto";
@@ -538,30 +530,33 @@
                 const translatedText = response.text();
                 console.log("Received translation:", translatedText);
 
-                let tempTranslatingElement = document.getElementById(translatingMsgId);
+                const finalP = document.getElementById(translatingMsgId); // Lấy lại element placeholder
 
                 if (translatedText) {
-                    currentTranslatedForSave = (currentTranslatedForSave ? currentTranslatedForSave + " " : "") + translatedText;
-                    if (tempTranslatingElement) {
-                        tempTranslatingElement.innerHTML = `<span class="text-sm font-semibold text-blue-600">${translatedText.trim()}</span>`;
-                    } else { 
-                        const lastP = translatedTextBox ? translatedTextBox.querySelector('p:last-child') : null;
-                        if(lastP) lastP.innerHTML += `<br/><span class="text-sm font-semibold text-blue-600">${translatedText.trim()}</span>`;
-                        else if (translatedTextBox) translatedTextBox.innerHTML += `<p><span class="text-sm font-semibold text-blue-600">${translatedText.trim()}</span></p>`;
+                    currentTranslatedForSave = translatedText.trim() + (currentTranslatedForSave ? " " + currentTranslatedForSave : ""); // Prepend cho lưu trữ
+                    if (finalP) {
+                        finalP.innerHTML = `<span class="text-sm font-semibold text-blue-600">${translatedText.trim()}</span>`;
+                    } else if (translatedTextBox) { // Fallback nếu không tìm thấy ID
+                         const newP = document.createElement('p');
+                         newP.innerHTML = `<span class="text-sm font-semibold text-blue-600">${translatedText.trim()}</span>`;
+                         translatedTextBox.insertBefore(newP, translatedTextBox.firstChild);
                     }
                     if(auth.currentUser && saveTranslationButton) saveTranslationButton.style.display = 'inline-block';
                 } else {
+                    if (finalP) finalP.innerHTML = `<span class="text-red-500">[Không nhận được bản dịch]</span>`;
                     throw new Error("Không nhận được bản dịch từ AI.");
                 }
 
             } catch (error) {
                 console.error("Lỗi khi dịch (Firebase AI Logic):", error);
                 showUIMessage("Lỗi khi dịch (AI): " + error.message, 7000);
-                let tempTranslatingElement = document.getElementById(translatingMsgId);
-                if (tempTranslatingElement) {
-                    tempTranslatingElement.innerHTML = `<span class="text-red-500">[Lỗi dịch (AI): ${error.message}]</span>`;
+                const errorP = document.getElementById(translatingMsgId);
+                if (errorP) {
+                    errorP.innerHTML = `<span class="text-red-500">[Lỗi dịch (AI): ${error.message}]</span>`;
                 } else if (translatedTextBox) {
-                     translatedTextBox.innerHTML += `<p><span class="text-red-500">[Lỗi dịch (AI) cho "${textSegment}": ${error.message}]</span></p>`;
+                     const newErrorP = document.createElement('p');
+                     newErrorP.innerHTML = `<span class="text-red-500">[Lỗi dịch (AI) cho "${textSegment}": ${error.message}]</span>`;
+                     translatedTextBox.insertBefore(newErrorP, translatedTextBox.firstChild);
                 }
             }
         }
@@ -655,8 +650,8 @@
                         userId: user.uid,
                         originalText: currentOriginalForSave,
                         translatedText: currentTranslatedForSave,
-                        sourceLang: sourceLangSelect.value, // Lưu ngôn ngữ đã chọn
-                        targetLang: targetLangSelect.value, // Lưu ngôn ngữ đã chọn
+                        sourceLang: sourceLangSelect.value, 
+                        targetLang: targetLangSelect.value, 
                         createdAt: serverTimestamp() 
                     });
                     showUIMessage("Đã lưu bản dịch thành công!", 3000);
@@ -713,7 +708,7 @@
                     historyItem.appendChild(originalP);
                     historyItem.appendChild(translatedP);
                     historyItem.appendChild(timestampP);
-                    translationHistoryDiv.appendChild(historyItem);
+                    translationHistoryDiv.insertBefore(historyItem, translationHistoryDiv.firstChild); // Prepend history item
                 });
             }, (error) => {
                 console.error("Lỗi khi tải lịch sử: ", error);
