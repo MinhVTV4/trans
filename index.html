@@ -346,7 +346,7 @@
         let recognition;
         let isRecording = false;
         const FINAL_TRANSCRIPT_TIMEOUT = 1000; 
-        let finalTranscriptTimer;
+        let finalTranscriptTimer; // Timer for user pauses
         let lastFinalTranscript = ""; 
 
         // --- Translation Queue ---
@@ -358,8 +358,7 @@
                 return;
             }
             isProcessingQueue = true;
-            // Optional: UI indicator for queue processing
-            // console.log(`Processing queue, ${translationQueue.length} items remaining.`);
+            console.log(`Processing queue, ${translationQueue.length} items remaining.`);
 
             const item = translationQueue.shift(); 
             try {
@@ -367,8 +366,6 @@
                     await sendToTranslateWithFirebaseAI(item.segment, item.fullText, item.placeholderId);
                 }
             } catch (error) {
-                // This catch is for unexpected errors within the queue processing logic itself,
-                // sendToTranslateWithFirebaseAI has its own error handling for API calls.
                 console.error("Critical error processing translation queue item:", error, item);
                 showUIMessage("Lỗi nghiêm trọng khi xử lý hàng đợi dịch.", 5000);
             } finally {
@@ -376,12 +373,19 @@
             }
             
             if (translationQueue.length > 0) {
-                setTimeout(processTranslationQueue, 50); // Give browser a bit more time
+                setTimeout(processTranslationQueue, 50); 
             } else {
                 console.log("Translation queue processed completely.");
             }
         }
         // --- End Translation Queue ---
+
+        // --- Forced Segmentation Timer ---
+        let forceSegmentTimer;
+        const MAX_CONTINUOUS_SPEECH_DURATION = 7000; // e.g., 7 seconds
+        let lastSpeechActivityTime = 0;
+        let accumulatedInterimForForce = ""; // To capture text if no final result comes
+        // --- End Forced Segmentation Timer ---
 
 
         function initializeSpeechRecognition() {
@@ -408,18 +412,30 @@
                     if (saveTranslationButton) saveTranslationButton.style.display = 'none'; 
                     lastFinalTranscript = ""; 
                     translationQueue = []; 
+                    accumulatedInterimForForce = "";
+                    lastSpeechActivityTime = Date.now();
+                    clearTimeout(forceSegmentTimer); // Clear previous timer
+                    forceSegmentTimer = setTimeout(checkAndForceSegment, MAX_CONTINUOUS_SPEECH_DURATION);
                 };
 
                 recognition.onresult = (event) => {
-                    clearTimeout(finalTranscriptTimer);
+                    lastSpeechActivityTime = Date.now(); // Update activity time
+                    clearTimeout(finalTranscriptTimer); // Reset pause timer
+                    clearTimeout(forceSegmentTimer); // Reset force segment timer on new result
+                    forceSegmentTimer = setTimeout(checkAndForceSegment, MAX_CONTINUOUS_SPEECH_DURATION); // Restart it
+
+
                     let interimTranscript = '';
                     let finalTranscriptSegment = '';
 
                     for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        const transcriptPart = event.results[i][0].transcript;
                         if (event.results[i].isFinal) {
-                            finalTranscriptSegment += event.results[i][0].transcript;
+                            finalTranscriptSegment += transcriptPart;
+                            accumulatedInterimForForce = ""; // Reset if we get a final
                         } else {
-                            interimTranscript += event.results[i][0].transcript;
+                            interimTranscript += transcriptPart;
+                            accumulatedInterimForForce += transcriptPart; // Accumulate for potential forced segment
                         }
                     }
                     
@@ -430,26 +446,25 @@
 
                     if (finalTranscriptSegment.trim() !== '') {
                         const currentFullFinalTranscript = (lastFinalTranscript + finalTranscriptSegment).trim();
+                        // Queue immediately if it's a new final segment
+                        if (currentFullFinalTranscript.trim() !== '' && currentFullFinalTranscript !== lastFinalTranscript.trim()) {
+                            console.log("Final segment received, queuing:", finalTranscriptSegment.trim());
+                            queueTranslation(finalTranscriptSegment.trim(), currentFullFinalTranscript);
+                            lastFinalTranscript = currentFullFinalTranscript + " "; 
+                        }
+                    } else if (interimTranscript.trim() !== '') {
+                        // If only interim, set a timer to potentially send this interim if no final comes soon
                         finalTranscriptTimer = setTimeout(() => {
-                            if (currentFullFinalTranscript.trim() !== '' && currentFullFinalTranscript !== lastFinalTranscript.trim()) { 
-                                console.log("Final transcript segment to send:", finalTranscriptSegment.trim());
-                                
-                                const placeholderId = `translating-${Date.now()}`;
-                                const tempP = document.createElement('p');
-                                tempP.id = placeholderId;
-                                tempP.innerHTML = `<span class="text-gray-400">Đang dịch: "${finalTranscriptSegment.trim()}"<span class="spinner"></span></span>`;
-                                if (translatedTextBox) {
-                                    translatedTextBox.insertBefore(tempP, translatedTextBox.firstChild);
+                            const currentInterim = accumulatedInterimForForce.trim();
+                            if (isRecording && currentInterim !== '') {
+                                console.log("Pause detected, queuing accumulated interim:", currentInterim);
+                                // Treat the accumulated interim as a segment to translate
+                                // Ensure it's not just a re-trigger for the same text
+                                if (currentInterim !== (lastFinalTranscript.endsWith(currentInterim + " ") ? currentInterim : "" ) ) {
+                                     queueTranslation(currentInterim, (lastFinalTranscript + currentInterim).trim());
+                                     lastFinalTranscript = (lastFinalTranscript + currentInterim).trim() + " ";
+                                     accumulatedInterimForForce = ""; // Reset after queuing
                                 }
-
-                                translationQueue.push({ 
-                                    segment: finalTranscriptSegment.trim(), 
-                                    fullText: currentFullFinalTranscript,
-                                    placeholderId: placeholderId 
-                                });
-                                processTranslationQueue(); 
-
-                                lastFinalTranscript = currentFullFinalTranscript + " "; 
                             }
                         }, FINAL_TRANSCRIPT_TIMEOUT);
                     }
@@ -457,6 +472,7 @@
 
                 recognition.onerror = (event) => {
                     console.error("Speech recognition error:", event.error, event.message);
+                    clearTimeout(forceSegmentTimer);
                     let errorMessageText = "Lỗi nhận dạng giọng nói: "; 
                     if (event.error === 'no-speech') {
                         errorMessageText += "Không phát hiện thấy giọng nói. Vui lòng thử lại.";
@@ -476,14 +492,26 @@
                 };
 
                 recognition.onend = () => {
-                    if (isRecording) {
-                        console.log("Speech recognition ended unexpectedly or timed out.");
-                        processTranslationQueue();
+                    clearTimeout(forceSegmentTimer);
+                    clearTimeout(finalTranscriptTimer);
+                    if (isRecording) { // Ended unexpectedly or by forced segmentation
+                        console.log("Speech recognition ended.");
+                         // If there's remaining accumulated interim text from forced stop, queue it.
+                        const remainingInterim = accumulatedInterimForForce.trim();
+                        if (remainingInterim !== '') {
+                            console.log("Queuing remaining interim on recognition end:", remainingInterim);
+                            queueTranslation(remainingInterim, (lastFinalTranscript + remainingInterim).trim());
+                            lastFinalTranscript = (lastFinalTranscript + remainingInterim).trim() + " ";
+                            accumulatedInterimForForce = "";
+                        }
+                        processTranslationQueue(); // Process anything left
                     } else {
                         console.log("Speech recognition ended by user or completed normally.");
                     }
+                    
+                    // Reset UI if not already handled by a restart (in case of forced segmentation)
+                    isRecording = false; // Ensure isRecording is false before UI reset
                     if (startButton && startButton.disabled) {
-                        isRecording = false;
                         startButton.disabled = false;
                         if (stopButton) stopButton.disabled = true;
                         if (statusDot) {
@@ -491,7 +519,6 @@
                             statusDot.classList.add('status-idle');
                         }
                         if (startButton.childNodes[2]) startButton.childNodes[2].nodeValue = ' Bắt đầu';
-                        clearTimeout(finalTranscriptTimer);
                     }
                 };
             } else {
@@ -502,6 +529,50 @@
                     permissionNotice.innerHTML = "Trình duyệt không hỗ trợ Web Speech API. Dùng Google Chrome.";
                     permissionNotice.style.display = 'block';
                 }
+            }
+        }
+
+        function queueTranslation(segment, fullText) {
+            if (!segment || segment.trim() === '') return;
+
+            const placeholderId = `translating-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+            const tempP = document.createElement('p');
+            tempP.id = placeholderId;
+            tempP.innerHTML = `<span class="text-gray-400">Đang dịch: "${segment}"<span class="spinner"></span></span>`;
+            if (translatedTextBox) {
+                translatedTextBox.insertBefore(tempP, translatedTextBox.firstChild);
+                translatedTextBox.scrollTop = 0; // Scroll to top to see new placeholder
+            }
+
+            translationQueue.push({ 
+                segment: segment, 
+                fullText: fullText,
+                placeholderId: placeholderId 
+            });
+            processTranslationQueue(); 
+        }
+        
+        function checkAndForceSegment() {
+            if (!isRecording) return;
+
+            const now = Date.now();
+            if (now - lastSpeechActivityTime >= MAX_CONTINUOUS_SPEECH_DURATION) {
+                console.log("Max continuous speech duration reached. Forcing segment.");
+                const currentInterimToForce = accumulatedInterimForForce.trim();
+                if (currentInterimToForce !== "") {
+                    // Queue the accumulated interim as if it were a final segment
+                    queueTranslation(currentInterimToForce, (lastFinalTranscript + currentInterimToForce).trim());
+                    lastFinalTranscript = (lastFinalTranscript + currentInterimToForce).trim() + " ";
+                    accumulatedInterimForForce = ""; // Reset
+                }
+                // Restart the timer for the next potential forced segment
+                lastSpeechActivityTime = Date.now(); // Reset activity time
+                clearTimeout(forceSegmentTimer);
+                forceSegmentTimer = setTimeout(checkAndForceSegment, MAX_CONTINUOUS_SPEECH_DURATION);
+            } else {
+                // If not forcing, reschedule the check
+                clearTimeout(forceSegmentTimer);
+                forceSegmentTimer = setTimeout(checkAndForceSegment, MAX_CONTINUOUS_SPEECH_DURATION - (now - lastSpeechActivityTime));
             }
         }
         
@@ -553,6 +624,7 @@
                     currentOriginalForSave = ""; 
                     currentTranslatedForSave = ""; 
                     translationQueue = []; 
+                    accumulatedInterimForForce = "";
                     try {
                         recognition.lang = sourceLangSelect.value; 
                         recognition.start();
@@ -571,32 +643,39 @@
 
         if (stopButton) {
             stopButton.addEventListener('click', () => {
-                stopSpeechRecognition();
+                stopSpeechRecognition(); // This will also clear forceSegmentTimer
+                // Queue any remaining accumulated interim text before processing the queue fully
+                const remainingInterim = accumulatedInterimForForce.trim();
+                if (remainingInterim !== '') {
+                     console.log("Queuing remaining interim on user stop:", remainingInterim);
+                     queueTranslation(remainingInterim, (lastFinalTranscript + remainingInterim).trim());
+                     lastFinalTranscript = (lastFinalTranscript + remainingInterim).trim() + " ";
+                     accumulatedInterimForForce = "";
+                }
                 processTranslationQueue(); 
                 showUIMessage("Đã dừng ghi âm.", 2000);
             });
         }
 
         function stopSpeechRecognition() { 
+            clearTimeout(forceSegmentTimer); // Stop the force segment timer
             if (recognition && isRecording) {
-                recognition.stop();
+                recognition.stop(); // This will trigger onend
             }
-            isRecording = false;
-            if (startButton) startButton.disabled = false;
-            if (stopButton) stopButton.disabled = true;
-            if (statusDot) {
-                statusDot.classList.remove('status-recording');
-                statusDot.classList.add('status-idle');
-            }
-            if (startButton && startButton.childNodes[2]) startButton.childNodes[2].nodeValue = ' Bắt đầu';
-            clearTimeout(finalTranscriptTimer);
+            // UI updates are now primarily handled in onend to avoid race conditions
+            isRecording = false; // Set recording state immediately
+            // We don't reset UI here directly, let onend handle it after recognition fully stops
         }
         
         let currentOriginalForSave = "";
         let currentTranslatedForSave = "";
 
         async function sendToTranslateWithFirebaseAI(textSegment, fullOriginalText, placeholderId) {
-            if (!textSegment || textSegment.trim() === '') return;
+            if (!textSegment || textSegment.trim() === '') {
+                 const el = document.getElementById(placeholderId);
+                 if(el) el.remove(); // Remove placeholder if segment is empty
+                 return;
+            }
             if (!generativeAIModel) {
                 showUIMessage("Lỗi: Dịch vụ AI chưa sẵn sàng để dịch.", 5000);
                 const errorP = document.getElementById(placeholderId);
@@ -660,6 +739,7 @@
                 if(originalTextBox) originalTextBox.innerHTML = '';
                 lastFinalTranscript = ""; 
                 currentOriginalForSave = "";
+                accumulatedInterimForForce = "";
                 showUIMessage("Đã xóa văn bản gốc.", 1500);
             });
         }
