@@ -20,6 +20,10 @@
             border-color: #3b82f6;
             box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
         }
+        .conversation-panel.translating {
+            border-color: #f59e0b; /* Amber-500 */
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+        }
         .status-dot {
             width: 12px;
             height: 12px;
@@ -254,6 +258,29 @@
             utterance.lang = lang;
             speechSynthesis.speak(utterance);
         }
+
+        // FIX: Centralized function to manage panel UI states for clarity and reliability
+        function updatePanelState(panelId, state) {
+            const panel = (panelId === 'A') ? panelA : panelB;
+            const status = (panelId === 'A') ? statusA : statusB;
+            
+            panel.classList.remove('listening', 'translating');
+            
+            switch(state) {
+                case 'listening':
+                    panel.classList.add('listening');
+                    status.className = 'status-dot status-listening';
+                    break;
+                case 'translating':
+                    panel.classList.add('translating');
+                    status.className = 'status-dot status-translating';
+                    break;
+                case 'idle':
+                default:
+                    status.className = 'status-dot status-idle';
+                    break;
+            }
+        }
         
         // --- Core Functions ---
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -269,10 +296,7 @@
             recognition.interimResults = false;
             
             recognition.onstart = () => {
-                const panel = (id === 'A') ? panelA : panelB;
-                const status = (id === 'A') ? statusA : statusB;
-                panel.classList.add('listening');
-                status.className = 'status-dot status-listening';
+                updatePanelState(id, 'listening');
             };
 
             recognition.onresult = (event) => {
@@ -282,18 +306,19 @@
 
             recognition.onerror = (event) => {
                  console.error(`Recognition Error (${id}):`, event.error);
-                const panel = (id === 'A') ? panelA : panelB;
-                panel.classList.remove('listening');
-                const status = (id === 'A') ? statusA : statusB;
-                status.className = 'status-dot status-idle';
+                 updatePanelState(id, 'idle');
             };
 
             recognition.onend = () => {
-                const panel = (id === 'A') ? panelA : panelB;
-                panel.classList.remove('listening');
-                const status = (id === 'A') ? statusA : statusB;
-                status.className = 'status-dot status-idle';
-                if (isConversationActive) setTimeout(() => recognition.start(), 200);
+                // FIX: Only set to idle if conversation is truly over. Otherwise, let onstart handle the UI.
+                if (isConversationActive) {
+                    setTimeout(() => {
+                        // Re-check in case the user stopped the conversation during the timeout
+                        if (isConversationActive) recognition.start();
+                    }, 200);
+                } else {
+                    updatePanelState(id, 'idle');
+                }
             };
             return recognition;
         }
@@ -305,10 +330,9 @@
             const sourceLangCode = isPersonA ? 'vi-VN' : 'en-US';
             const targetLangName = isPersonA ? 'English' : 'Vietnamese';
             const targetLangCode = isPersonA ? 'en-US' : 'vi-VN';
-            const status = isPersonA ? statusA : statusB;
-
+            
+            updatePanelState(personId, 'translating');
             addBubble(sourceView, transcript, true, sourceLangCode);
-            status.className = 'status-dot status-translating';
 
             try {
                 const prompt = `Translate the following ${sourceLangName} text to ${targetLangName}. Provide only the translation, without any additional comments, context, or quotation marks: "${transcript}"`;
@@ -323,7 +347,12 @@
                 console.error("Translation error:", error);
                 addBubble(sourceView, "Lỗi dịch.", false, targetLangCode);
             } finally {
-                status.className = 'status-dot status-listening';
+                // FIX: Return to listening state if conversation is active
+                if (isConversationActive) {
+                    updatePanelState(personId, 'listening');
+                } else {
+                    updatePanelState(personId, 'idle');
+                }
             }
         }
 
@@ -362,6 +391,7 @@
             isConversationActive = false;
             if (recognitionA) recognitionA.stop();
             if (recognitionB) recognitionB.stop();
+            // The onend event will handle setting the UI to idle state.
             mainControlBtn.classList.remove('active');
             mainControlBtn.innerHTML = '<i class="fas fa-play mr-2"></i>Bắt đầu Hội thoại';
         }
