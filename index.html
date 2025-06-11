@@ -69,8 +69,7 @@
             text-align: center;
             font-style: italic;
             max-width: 90%;
-            margin-left: auto;
-            margin-right: auto;
+            margin: 4px auto;
         }
 
         .bubble-actions {
@@ -370,6 +369,20 @@
             "vi": { name: "Tiếng Việt", ttsName: "vi-VN", geminiName: "Vietnamese" }
         };
 
+        // --- Stability Workarounds ---
+        // FIX: Add a periodic ping to keep speech synthesis alive in some browsers (e.g., Chrome)
+        try {
+            setInterval(() => {
+                if (window.speechSynthesis && (window.speechSynthesis.speaking || window.speechSynthesis.pending)) {
+                    window.speechSynthesis.pause();
+                    window.speechSynthesis.resume();
+                }
+            }, 5000);
+        } catch (e) {
+            console.warn("Could not set up SpeechSynthesis ping.", e);
+        }
+
+
         // --- UI Functions ---
         function showUIMessage(message, duration = 3000) {
             messageBox.textContent = message;
@@ -476,6 +489,8 @@
                 if (appSettings.recordingMode === 'continuous' && isContinuousModeActive) {
                     if (appSettings.bilingualMode && processedSuccessfully) {
                          swapLanguages();
+                         // FIX: Add a feedback bubble to inform the user of the language change
+                         createBubble(`Bây giờ đang nghe bằng ${languageMap[sourceLangSelect.value].name}...`, 'info');
                          setTimeout(() => { if (isContinuousModeActive) recognition.start(); }, 500);
                     } else {
                          setTimeout(() => { if (isContinuousModeActive) recognition.start(); }, 200);
@@ -488,14 +503,30 @@
             };
         }
 
+        // FIX: Fortified speakText function to prevent it from getting stuck
         function speakText(text, langCode) {
             return new Promise((resolve) => {
-                if (!text || !langCode || !window.speechSynthesis) return resolve();
+                if (!text || !langCode || !window.speechSynthesis) {
+                    resolve();
+                    return;
+                }
+                
+                // Safety net: resolve after a calculated time + buffer, in case onend never fires.
+                const estimatedTime = (text.length / 10) * 1000 + 2000; // Roughly 10 chars/sec + 2s buffer
+                const safetyTimeout = setTimeout(resolve, Math.max(estimatedTime, 3000)); // Minimum 3 seconds
+
                 speechSynthesis.cancel();
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = languageMap[langCode]?.ttsName || langCode;
-                utterance.onend = resolve;
-                utterance.onerror = (e) => { console.error("Speech synthesis error:", e); resolve(); };
+                utterance.onend = () => {
+                    clearTimeout(safetyTimeout);
+                    resolve();
+                };
+                utterance.onerror = (e) => {
+                    console.error("Speech synthesis error:", e);
+                    clearTimeout(safetyTimeout);
+                    resolve();
+                };
                 speechSynthesis.speak(utterance);
             });
         }
@@ -627,7 +658,7 @@
             bilingualToggleContainer.style.opacity = isContinuous ? '1' : '0.5';
             bilingualToggleContainer.style.pointerEvents = isContinuous ? 'auto' : 'none';
             bilingualToggle.disabled = !isContinuous;
-            if (!isContinuous) { // Uncheck bilingual if not in continuous mode
+            if (!isContinuous) {
                 bilingualToggle.checked = false;
                 appSettings.bilingualMode = false;
                 saveSettings();
