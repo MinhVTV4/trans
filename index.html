@@ -413,6 +413,7 @@
             bubble.innerHTML = `<div class="text-content">${text}</div>${actionsHTML ? `<div class="bubble-actions flex items-center justify-end space-x-2 mt-2">${actionsHTML}</div>` : ''}`;
             
             bubbleWrapper.appendChild(bubble);
+            conversationView.appendChild(bubbleWrapper);
             scrollToBottom();
             return bubbleId;
         }
@@ -491,16 +492,21 @@
                 if (listeningBubble) {
                      if (transcriptToProcess) {
                         listeningBubble.querySelector('.text-content').textContent = transcriptToProcess;
-                        await translateAndDisplay(transcriptToProcess);
-                        processedSuccessfully = true;
-                     } else listeningBubble.parentElement.remove();
+                        
+                        // FIX: Pass the bubble element to the translate function
+                        const assistantBubbleId = createBubble('<span class="spinner"></span>', 'assistant', targetLangSelect.value);
+                        const assistantBubbleElement = document.getElementById(assistantBubbleId);
+                        processedSuccessfully = await translateAndDisplay(transcriptToProcess, assistantBubbleElement);
+
+                     } else {
+                        listeningBubble.parentElement.remove();
+                     }
                 }
                 currentListenBubbleId = null;
 
                 if (appSettings.recordingMode === 'continuous' && isContinuousModeActive) {
                     if (appSettings.bilingualMode && processedSuccessfully) {
                          swapLanguages();
-                         // NEW: Create bilingual info message
                          let infoMessageText = '';
                          if (sourceLangSelect.value === 'vi-VN') {
                              infoMessageText = `Đang nghe bằng Tiếng Việt...<br><span class='text-xs opacity-75'>Now listening in Vietnamese...</span>`;
@@ -537,13 +543,17 @@
             });
         }
 
-        async function translateAndDisplay(text) {
+        // FIX: Reworked the translateAndDisplay function to accept the bubble element
+        async function translateAndDisplay(text, assistantBubble) {
             if (!chatSession) {
                 showUIMessage("Phiên trò chuyện chưa sẵn sàng. Vui lòng thử lại.", 4000);
-                return;
+                if (assistantBubble && assistantBubble.parentElement) assistantBubble.parentElement.remove();
+                return false;
             }
-
-            const assistantBubbleId = createBubble('<span class="spinner"></span>', 'assistant', targetLangSelect.value);
+            if (!assistantBubble) {
+                console.error("translateAndDisplay called without a valid bubble element.");
+                return false;
+            }
             
             try {
                 const sourceLangName = languageMap[sourceLangSelect.value].geminiName;
@@ -555,29 +565,25 @@
                 const response = await result.response;
                 const translatedText = response.text().trim();
 
-                const assistantBubble = document.getElementById(assistantBubbleId);
-                if (assistantBubble) {
-                    assistantBubble.querySelector('.text-content').textContent = translatedText;
+                assistantBubble.querySelector('.text-content').textContent = translatedText;
                     
-                    if (appSettings.autoSpeak && translatedText) {
-                        await speakText(translatedText, targetLangSelect.value);
-                    }
-
-                    if (auth.currentUser && text && translatedText) {
-                        saveToHistory(text, translatedText, sourceLangSelect.value, targetLangSelect.value);
-                    }
+                if (appSettings.autoSpeak && translatedText) {
+                    await speakText(translatedText, targetLangSelect.value);
                 }
+
+                if (auth.currentUser && text && translatedText) {
+                    saveToHistory(text, translatedText, sourceLangSelect.value, targetLangSelect.value);
+                }
+                return true; // Indicate success
 
             } catch (error) {
                 console.error("Translation error:", error);
-                
-                const failedBubble = document.getElementById(assistantBubbleId);
-                if (failedBubble && failedBubble.parentElement) {
-                    failedBubble.parentElement.remove();
+                if (assistantBubble && assistantBubble.parentElement) {
+                    assistantBubble.parentElement.remove();
                 }
-
                 startNewChatSession();
                 createBubble("Đã có lỗi với AI, phiên dịch đã được làm mới.", 'info');
+                return false; // Indicate failure
             }
         }
         
@@ -610,7 +616,9 @@
             const text = textInput.value.trim();
             if (text) {
                 createBubble(text, 'user', sourceLangSelect.value);
-                translateAndDisplay(text);
+                const assistantBubbleId = createBubble('<span class="spinner"></span>', 'assistant', targetLangSelect.value);
+                const assistantBubbleElement = document.getElementById(assistantBubbleId);
+                translateAndDisplay(text, assistantBubbleElement);
                 textInput.value = '';
                 textInput.style.height = 'auto';
             }
@@ -771,4 +779,3 @@
     </script>
 </body>
 </html>
-
