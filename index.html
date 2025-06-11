@@ -15,28 +15,24 @@
         .conversation-panel {
             transition: all 0.3s ease-in-out;
             border: 2px solid transparent;
+            display: flex;
+            flex-direction: column;
         }
         .conversation-panel.listening {
             border-color: #3b82f6;
             box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
         }
-        .conversation-panel.translating {
-            border-color: #f59e0b; /* Amber-500 */
-            box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+        .mic-btn {
+            transition: all 0.2s ease-in-out;
         }
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            transition: background-color 0.3s;
+        .mic-btn.recording {
+            background-color: #ef4444;
+            color: white;
+            transform: scale(1.1);
         }
-        .status-idle { background-color: #6b7280; }
-        .status-listening { background-color: #2563eb; animation: pulse-blue 1.5s infinite; }
-        .status-translating { background-color: #f59e0b; }
-        @keyframes pulse-blue {
-            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
-            70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        .mic-btn:disabled {
+            background-color: #d1d5db;
+            cursor: not-allowed;
         }
         .bubble {
             max-width: 90%;
@@ -74,12 +70,6 @@
         .action-btn { color: #4b5563; }
         .action-btn:hover { color: #1e293b; }
 
-        .main-control-btn {
-            transition: all 0.2s ease-in-out;
-        }
-        .main-control-btn.active {
-            background-color: #dc2626 !important;
-        }
         .floating-panel {
             position: absolute;
             top: 0; right: 0;
@@ -132,7 +122,7 @@
             <div class="flex-1 text-left"></div>
             <div class="flex-1">
                 <h1 class="text-2xl font-bold text-gray-800">Chế độ Hội thoại Song phương</h1>
-                <p class="text-sm text-gray-500">Hai người nói, hai ngôn ngữ, một cuộc trò chuyện.</p>
+                <p class="text-sm text-gray-500">Nhấn micro ở ô tương ứng để bắt đầu nói.</p>
             </div>
             <div class="flex-1 text-right space-x-2">
                  <button id="authToggleBtn" class="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" title="Tài khoản">
@@ -146,37 +136,31 @@
         
         <div class="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4 overflow-hidden">
             <!-- Person A Panel -->
-            <div id="panelA" class="conversation-panel bg-gray-50 rounded-lg p-4 flex flex-col">
-                <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-lg font-semibold text-gray-700">Người nói Tiếng Việt</h2>
-                    <div id="statusA" class="status-dot status-idle" title="Trạng thái: Không hoạt động"></div>
-                </div>
-                <div id="viewA" class="flex-grow overflow-y-auto space-y-3 p-2 bg-white rounded-md">
+            <div id="panelA" class="conversation-panel bg-gray-50 rounded-lg p-4">
+                <h2 class="text-lg font-semibold text-gray-700 mb-3 text-center">Người nói Tiếng Việt</h2>
+                <div id="viewA" class="flex-grow overflow-y-auto space-y-3 p-2 bg-white rounded-md mb-3">
                      <p class="text-center text-gray-400 text-sm mt-4">Nội dung trò chuyện sẽ hiện ở đây...</p>
                 </div>
+                <button id="micA" class="mic-btn w-16 h-16 mx-auto bg-blue-600 text-white rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-microphone-alt text-2xl"></i>
+                </button>
             </div>
 
             <!-- Person B Panel -->
-            <div id="panelB" class="conversation-panel bg-gray-50 rounded-lg p-4 flex flex-col">
-                <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-lg font-semibold text-gray-700">Người nói Tiếng Anh</h2>
-                    <div id="statusB" class="status-dot status-idle" title="Trạng thái: Không hoạt động"></div>
-                </div>
-                <div id="viewB" class="flex-grow overflow-y-auto space-y-3 p-2 bg-white rounded-md">
+            <div id="panelB" class="conversation-panel bg-gray-50 rounded-lg p-4">
+                <h2 class="text-lg font-semibold text-gray-700 mb-3 text-center">Người nói Tiếng Anh</h2>
+                <div id="viewB" class="flex-grow overflow-y-auto space-y-3 p-2 bg-white rounded-md mb-3">
                     <p class="text-center text-gray-400 text-sm mt-4">Conversation content will appear here...</p>
                 </div>
+                <button id="micB" class="mic-btn w-16 h-16 mx-auto bg-blue-600 text-white rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-microphone-alt text-2xl"></i>
+                </button>
             </div>
         </div>
         
-        <footer class="text-center mt-4">
-            <button id="mainControlBtn" class="main-control-btn w-full max-w-xs mx-auto px-6 py-4 bg-green-600 text-white font-bold rounded-xl text-lg hover:bg-green-700">
-                <i class="fas fa-play mr-2"></i>Bắt đầu Hội thoại
-            </button>
-        </footer>
-
         <!-- Floating Panels -->
         <div id="authPanel" class="floating-panel">
-            <button id="closeAuthBtn" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+             <button id="closeAuthBtn" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
             <h3 class="text-lg font-semibold text-gray-700 mb-4 text-center">Tài Khoản</h3>
             <div id="authForm" style="display: block;">
                 <input type="email" id="emailInput" class="w-full px-3 py-2 border rounded-md mb-2" placeholder="Email" autocomplete="email">
@@ -209,9 +193,8 @@
         import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
 
         // --- DOM Elements ---
-        const mainControlBtn = document.getElementById('mainControlBtn');
-        const panelA = document.getElementById('panelA'), viewA = document.getElementById('viewA'), statusA = document.getElementById('statusA');
-        const panelB = document.getElementById('panelB'), viewB = document.getElementById('viewB'), statusB = document.getElementById('statusB');
+        const panelA = document.getElementById('panelA'), viewA = document.getElementById('viewA'), micA = document.getElementById('micA');
+        const panelB = document.getElementById('panelB'), viewB = document.getElementById('viewB'), micB = document.getElementById('micB');
         const authToggleBtn = document.getElementById('authToggleBtn'), authPanel = document.getElementById('authPanel'), closeAuthBtn = document.getElementById('closeAuthBtn');
         const historyToggleBtn = document.getElementById('historyToggleBtn'), historyPanel = document.getElementById('historyPanel'), closeHistoryBtn = document.getElementById('closeHistoryBtn');
         const messageBox = document.getElementById('messageBox');
@@ -238,13 +221,13 @@
             generativeAIModel = getGenerativeModel(firebaseAIService, { model: "gemini-1.5-flash" });
         } catch (error) {
             console.error("AI Init Error:", error);
-            mainControlBtn.disabled = true; mainControlBtn.textContent = "Lỗi khởi tạo AI";
+            micA.disabled = true; micB.disabled = true;
         }
         
         // --- State ---
         let recognitionA, recognitionB;
-        let isConversationActive = false;
-        
+        let activeRecognition = null;
+
         // --- UI Functions ---
         function showUIMessage(message, duration = 2000) {
             messageBox.textContent = message;
@@ -259,34 +242,19 @@
             speechSynthesis.speak(utterance);
         }
 
-        // FIX: Centralized function to manage panel UI states for clarity and reliability
-        function updatePanelState(panelId, state) {
-            const panel = (panelId === 'A') ? panelA : panelB;
-            const status = (panelId === 'A') ? statusA : statusB;
-            
-            panel.classList.remove('listening', 'translating');
-            
-            switch(state) {
-                case 'listening':
-                    panel.classList.add('listening');
-                    status.className = 'status-dot status-listening';
-                    break;
-                case 'translating':
-                    panel.classList.add('translating');
-                    status.className = 'status-dot status-translating';
-                    break;
-                case 'idle':
-                default:
-                    status.className = 'status-dot status-idle';
-                    break;
-            }
+        function setMicState(mic, isRecording) {
+            mic.classList.toggle('recording', isRecording);
+            mic.querySelector('i').className = isRecording ? 'fas fa-stop text-2xl' : 'fas fa-microphone-alt text-2xl';
+        }
+
+        function setPanelState(panel, isActive) {
+            panel.classList.toggle('listening', isActive);
         }
         
         // --- Core Functions ---
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
-            mainControlBtn.disabled = true;
-            mainControlBtn.textContent = "Trình duyệt không hỗ trợ";
+            micA.disabled = true; micB.disabled = true;
         }
 
         function setupRecognition(id, lang, onResultCallback) {
@@ -296,7 +264,12 @@
             recognition.interimResults = false;
             
             recognition.onstart = () => {
-                updatePanelState(id, 'listening');
+                activeRecognition = recognition;
+                const isA = id === 'A';
+                setMicState(isA ? micA : micB, true);
+                setPanelState(isA ? panelA : panelB, true);
+                micA.disabled = !isA;
+                micB.disabled = isA;
             };
 
             recognition.onresult = (event) => {
@@ -305,20 +278,19 @@
             };
 
             recognition.onerror = (event) => {
-                 console.error(`Recognition Error (${id}):`, event.error);
-                 updatePanelState(id, 'idle');
+                console.error(`Recognition Error (${id}):`, event.error);
+                if (event.error === 'no-speech') {
+                    showUIMessage("Không nhận diện được giọng nói. Vui lòng thử lại.");
+                }
             };
 
             recognition.onend = () => {
-                // FIX: Only set to idle if conversation is truly over. Otherwise, let onstart handle the UI.
-                if (isConversationActive) {
-                    setTimeout(() => {
-                        // Re-check in case the user stopped the conversation during the timeout
-                        if (isConversationActive) recognition.start();
-                    }, 200);
-                } else {
-                    updatePanelState(id, 'idle');
-                }
+                activeRecognition = null;
+                const isA = id === 'A';
+                setMicState(isA ? micA : micB, false);
+                setPanelState(isA ? panelA : panelB, false);
+                micA.disabled = false;
+                micB.disabled = false;
             };
             return recognition;
         }
@@ -331,7 +303,6 @@
             const targetLangName = isPersonA ? 'English' : 'Vietnamese';
             const targetLangCode = isPersonA ? 'en-US' : 'vi-VN';
             
-            updatePanelState(personId, 'translating');
             addBubble(sourceView, transcript, true, sourceLangCode);
 
             try {
@@ -346,13 +317,6 @@
             } catch(error) {
                 console.error("Translation error:", error);
                 addBubble(sourceView, "Lỗi dịch.", false, targetLangCode);
-            } finally {
-                // FIX: Return to listening state if conversation is active
-                if (isConversationActive) {
-                    updatePanelState(personId, 'listening');
-                } else {
-                    updatePanelState(personId, 'idle');
-                }
             }
         }
 
@@ -377,28 +341,23 @@
             view.scrollTop = view.scrollHeight;
         }
 
-        function startConversation() {
-            if (!recognitionA) recognitionA = setupRecognition('A', 'vi-VN', (transcript) => handleResult('A', transcript));
-            if (!recognitionB) recognitionB = setupRecognition('B', 'en-US', (transcript) => handleResult('B', transcript));
-            isConversationActive = true;
-            recognitionA.start();
-            recognitionB.start();
-            mainControlBtn.classList.add('active');
-            mainControlBtn.innerHTML = '<i class="fas fa-stop mr-2"></i>Dừng Hội thoại';
-        }
-
-        function stopConversation() {
-            isConversationActive = false;
-            if (recognitionA) recognitionA.stop();
-            if (recognitionB) recognitionB.stop();
-            // The onend event will handle setting the UI to idle state.
-            mainControlBtn.classList.remove('active');
-            mainControlBtn.innerHTML = '<i class="fas fa-play mr-2"></i>Bắt đầu Hội thoại';
-        }
-
         // --- Event Listeners ---
-        mainControlBtn.addEventListener('click', () => {
-            isConversationActive ? stopConversation() : startConversation();
+        micA.addEventListener('click', () => {
+            if (activeRecognition) {
+                activeRecognition.stop();
+            } else {
+                if (!recognitionA) recognitionA = setupRecognition('A', 'vi-VN', (transcript) => handleResult('A', transcript));
+                recognitionA.start();
+            }
+        });
+
+        micB.addEventListener('click', () => {
+            if (activeRecognition) {
+                activeRecognition.stop();
+            } else {
+                if (!recognitionB) recognitionB = setupRecognition('B', 'en-US', (transcript) => handleResult('B', transcript));
+                recognitionB.start();
+            }
         });
         
         [viewA, viewB].forEach(view => {
@@ -420,11 +379,6 @@
         historyToggleBtn.addEventListener('click', () => historyPanel.classList.add('active'));
         closeHistoryBtn.addEventListener('click', () => historyPanel.classList.remove('active'));
 
-        // Auth listeners
-        registerButton.addEventListener('click', async () => { /* ... */ });
-        loginButton.addEventListener('click', async () => { /* ... */ });
-        logoutButton.addEventListener('click', async () => { /* ... */ });
-        
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 authForm.style.display = 'none'; userInfo.style.display = 'block';
@@ -437,7 +391,6 @@
                 if (unsubscribeHistory) unsubscribeHistory();
             }
         });
-        // --- Copied Auth/History Functions ---
         registerButton.addEventListener('click', async () => {
             const email = emailInput.value; const password = passwordInput.value;
             if (!email || !password) { showUIMessage("Vui lòng nhập email và mật khẩu."); return; }
