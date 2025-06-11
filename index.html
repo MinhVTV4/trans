@@ -353,7 +353,7 @@
         let currentListenBubbleId = null;
         let finalTranscriptForBubble = '';
         let unsubscribeHistory = null;
-        let chatSession = null; // For contextual translation
+        let chatSession = null;
         
         let appSettings = {
             autoSpeak: false,
@@ -391,6 +391,7 @@
             conversationView.scrollTop = conversationView.scrollHeight;
         }
 
+        // FIX: Function now returns the element itself for reliability
         function createBubble(text, type, lang) {
             const bubbleId = `bubble-${Date.now()}-${Math.random()}`;
             const bubbleWrapper = document.createElement('div');
@@ -415,7 +416,7 @@
             bubbleWrapper.appendChild(bubble);
             conversationView.appendChild(bubbleWrapper);
             scrollToBottom();
-            return bubbleId;
+            return bubble; // Return the element directly
         }
 
         // --- Core Logic ---
@@ -449,7 +450,7 @@
             recognition.onstart = () => {
                 isRecording = true;
                 finalTranscriptForBubble = ''; 
-                currentListenBubbleId = createBubble('<div class="listening-indicator"><span></span><span></span><span></span></div>', 'user');
+                currentListenBubbleId = createBubble('<div class="listening-indicator"><span></span><span></span><span></span></div>', 'user').id;
                 micButton.classList.add('recording');
                 micButton.querySelector('i').className = 'fas fa-stop text-xl';
             };
@@ -493,9 +494,7 @@
                      if (transcriptToProcess) {
                         listeningBubble.querySelector('.text-content').textContent = transcriptToProcess;
                         
-                        // FIX: Pass the bubble element to the translate function
-                        const assistantBubbleId = createBubble('<span class="spinner"></span>', 'assistant', targetLangSelect.value);
-                        const assistantBubbleElement = document.getElementById(assistantBubbleId);
+                        const assistantBubbleElement = createBubble('<span class="spinner"></span>', 'assistant', targetLangSelect.value);
                         processedSuccessfully = await translateAndDisplay(transcriptToProcess, assistantBubbleElement);
 
                      } else {
@@ -503,20 +502,10 @@
                      }
                 }
                 currentListenBubbleId = null;
-
+                
                 if (appSettings.recordingMode === 'continuous' && isContinuousModeActive) {
-                    if (appSettings.bilingualMode && processedSuccessfully) {
-                         swapLanguages();
-                         let infoMessageText = '';
-                         if (sourceLangSelect.value === 'vi-VN') {
-                             infoMessageText = `Đang nghe bằng Tiếng Việt...<br><span class='text-xs opacity-75'>Now listening in Vietnamese...</span>`;
-                         } else { 
-                             infoMessageText = `Now listening in English...<br><span class='text-xs opacity-75'>Đang nghe bằng Tiếng Anh...</span>`;
-                         }
-                         createBubble(infoMessageText, 'info');
-                         setTimeout(() => { if (isContinuousModeActive) recognition.start(); }, 500);
-                    } else {
-                         setTimeout(() => { if (isContinuousModeActive) recognition.start(); }, 200);
+                    if (isContinuousModeActive) {
+                        recognition.start();
                     }
                 } else {
                     isContinuousModeActive = false;
@@ -543,7 +532,6 @@
             });
         }
 
-        // FIX: Reworked the translateAndDisplay function to accept the bubble element
         async function translateAndDisplay(text, assistantBubble) {
             if (!chatSession) {
                 showUIMessage("Phiên trò chuyện chưa sẵn sàng. Vui lòng thử lại.", 4000);
@@ -564,8 +552,19 @@
                 const result = await chatSession.sendMessage(contextualPrompt);
                 const response = await result.response;
                 const translatedText = response.text().trim();
-
+                
                 assistantBubble.querySelector('.text-content').textContent = translatedText;
+
+                if (appSettings.bilingualMode && appSettings.recordingMode === 'continuous' && isContinuousModeActive) {
+                    swapLanguages();
+                    let infoMessageText = '';
+                    if (sourceLangSelect.value === 'vi-VN') {
+                        infoMessageText = `Đang nghe bằng Tiếng Việt...<br><span class='text-xs opacity-75'>Now listening in Vietnamese...</span>`;
+                    } else { 
+                        infoMessageText = `Now listening in English...<br><span class='text-xs opacity-75'>Đang nghe bằng Tiếng Anh...</span>`;
+                    }
+                    createBubble(infoMessageText, 'info');
+                }
                     
                 if (appSettings.autoSpeak && translatedText) {
                     await speakText(translatedText, targetLangSelect.value);
@@ -574,7 +573,7 @@
                 if (auth.currentUser && text && translatedText) {
                     saveToHistory(text, translatedText, sourceLangSelect.value, targetLangSelect.value);
                 }
-                return true; // Indicate success
+                return true;
 
             } catch (error) {
                 console.error("Translation error:", error);
@@ -583,7 +582,7 @@
                 }
                 startNewChatSession();
                 createBubble("Đã có lỗi với AI, phiên dịch đã được làm mới.", 'info');
-                return false; // Indicate failure
+                return false;
             }
         }
         
@@ -616,8 +615,7 @@
             const text = textInput.value.trim();
             if (text) {
                 createBubble(text, 'user', sourceLangSelect.value);
-                const assistantBubbleId = createBubble('<span class="spinner"></span>', 'assistant', targetLangSelect.value);
-                const assistantBubbleElement = document.getElementById(assistantBubbleId);
+                const assistantBubbleElement = createBubble('<span class="spinner"></span>', 'assistant', targetLangSelect.value);
                 translateAndDisplay(text, assistantBubbleElement);
                 textInput.value = '';
                 textInput.style.height = 'auto';
@@ -775,7 +773,8 @@
         // --- Initial Load ---
         loadSettings();
         initializeSpeechRecognition();
-        startNewChatSession(); // Start the first session on load
+        startNewChatSession();
     </script>
 </body>
 </html>
+
