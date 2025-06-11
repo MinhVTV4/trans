@@ -12,6 +12,7 @@
             font-family: 'Inter', sans-serif;
             background-color: #f0f2f5;
         }
+        /* Style cho thanh cuộn */
         #conversationView::-webkit-scrollbar, #historyPanel::-webkit-scrollbar, #settingsPanel::-webkit-scrollbar {
             width: 6px;
         }
@@ -36,7 +37,7 @@
         }
         .mic-button.recording {
             transform: scale(1.1);
-            background-color: #ef4444;
+            background-color: #ef4444; /* Red-500 */
             box-shadow: 0 0 0 10px rgba(239, 68, 68, 0.4);
             animation: pulse 1.5s infinite;
         }
@@ -54,22 +55,23 @@
             word-wrap: break-word;
         }
         .user-bubble {
-            background-color: #2563eb;
+            background-color: #2563eb; /* Blue-600 */
             color: white;
             border-bottom-right-radius: 4px;
         }
         .assistant-bubble {
-            background-color: #e2e8f0;
-            color: #1e293b;
+            background-color: #e2e8f0; /* Slate-200 */
+            color: #1e293b; /* Slate-800 */
             border-bottom-left-radius: 4px;
         }
         .info-bubble {
-            background-color: #fef9c3;
-            color: #713f12;
+            background-color: #fef9c3; /* Yellow-100 */
+            color: #713f12; /* Amber-900 */
             text-align: center;
             font-style: italic;
             max-width: 90%;
-            margin: 4px auto;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         .bubble-actions {
@@ -111,6 +113,7 @@
         @keyframes spinner-border {
             to { transform: rotate(360deg); }
         }
+        /* Listening indicator */
         .listening-indicator span {
             display: inline-block;
             width: 8px;
@@ -128,6 +131,7 @@
             40% { transform: scale(1.0); opacity: 1;}
         }
 
+        /* Toggle Switch Style */
         .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 28px; }
@@ -135,6 +139,7 @@
         input:checked + .slider { background-color: #2563eb; }
         input:checked + .slider:before { transform: translateX(22px); }
 
+        /* Custom style for text input */
         #textInput {
             resize: none;
             overflow-y: hidden;
@@ -169,7 +174,7 @@
                 <div class="flex justify-start">
                     <div class="bubble assistant-bubble">
                         <p class="font-medium">Chào bạn!</p>
-                        <p class="text-sm text-gray-600 mt-1">Gõ văn bản hoặc vào Cài đặt để bật "Chế độ Trò chuyện" và "Hội thoại song ngữ".</p>
+                        <p class="text-sm text-gray-600 mt-1">Chọn chế độ ghi âm trong Cài đặt, hoặc gõ văn bản bên dưới để dịch.</p>
                     </div>
                 </div>
             </div>
@@ -177,7 +182,12 @@
             <div id="permission-overlay" class="absolute inset-0 bg-white/90 backdrop-blur-sm z-30 flex-col items-center justify-center text-center p-6 rounded-lg" style="display: none;">
                 <i class="fas fa-microphone-slash text-5xl text-red-500 mb-4"></i>
                 <h3 class="text-2xl font-bold text-gray-800 mb-2">Cần Quyền Truy Cập Micro</h3>
-                <p class="text-gray-600">Ứng dụng này cần quyền truy cập vào micro của bạn để nhận dạng giọng nói.</p>
+                <p class="text-gray-600">
+                    Ứng dụng này cần quyền truy cập vào micro của bạn để có thể nhận dạng giọng nói.
+                    <br>
+                    Vui lòng nhấp vào biểu tượng micro <i class="fas fa-microphone-slash"></i> ở thanh địa chỉ của trình duyệt và chọn "Luôn cho phép".
+                </p>
+                 <p class="text-xs text-gray-500 mt-4">Sau khi cấp quyền, vui lòng tải lại trang.</p>
             </div>
 
             <div id="settingsPanel" class="absolute top-0 right-0 w-full max-w-sm h-full bg-white/80 backdrop-blur-sm p-6 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 ease-in-out z-20 overflow-y-auto">
@@ -186,7 +196,10 @@
                  <div class="space-y-6">
                     <div class="flex items-center justify-between">
                         <label for="autoSpeakToggle" class="text-gray-700">Tự động đọc bản dịch</label>
-                        <label class="switch"><input type="checkbox" id="autoSpeakToggle"><span class="slider"></span></label>
+                        <label class="switch">
+                            <input type="checkbox" id="autoSpeakToggle">
+                            <span class="slider"></span>
+                        </label>
                     </div>
                     <div>
                         <label class="text-gray-700 font-medium">Chế độ ghi âm</label>
@@ -204,17 +217,6 @@
                                 <label for="mode-continuous" class="ml-3 block text-sm text-gray-700">Chế độ Trò chuyện</label>
                             </div>
                         </div>
-                    </div>
-                     <!-- NEW: Bilingual Toggle -->
-                     <div id="bilingualToggleContainer" class="flex items-center justify-between p-3 bg-blue-50 rounded-lg transition-opacity duration-300">
-                        <div>
-                            <label for="bilingualToggle" class="font-medium text-blue-800">Hội thoại song ngữ</label>
-                            <p class="text-xs text-blue-600">Tự động đổi chiều dịch sau mỗi lượt nói.</p>
-                        </div>
-                        <label class="switch">
-                            <input type="checkbox" id="bilingualToggle">
-                            <span class="slider"></span>
-                        </label>
                     </div>
                  </div>
             </div>
@@ -264,6 +266,7 @@
                 </div>
              </div>
             
+            <!-- NEW: Text input and Mic button area -->
             <div class="flex items-end space-x-2">
                 <textarea id="textInput" rows="1" class="flex-grow p-2.5 bg-gray-100 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Nhập văn bản để dịch..."></textarea>
                 <button id="sendButton" class="w-12 h-12 flex-shrink-0 bg-green-500 text-white rounded-full flex items-center justify-center hover:bg-green-600" title="Gửi" aria-label="Gửi văn bản dịch">
@@ -297,14 +300,10 @@
         const textInput = document.getElementById('textInput');
         const sendButton = document.getElementById('sendButton');
         
-        // Panel & Settings Elements
+        // Panel Elements
         const settingsToggleBtn = document.getElementById('settingsToggleBtn');
         const settingsPanel = document.getElementById('settingsPanel');
         const closeSettingsBtn = document.getElementById('closeSettingsBtn');
-        const autoSpeakToggle = document.getElementById('autoSpeakToggle');
-        const recordingModeRadios = document.querySelectorAll('input[name="recordingMode"]');
-        const bilingualToggle = document.getElementById('bilingualToggle');
-        const bilingualToggleContainer = document.getElementById('bilingualToggleContainer');
         const authToggleBtn = document.getElementById('authToggleBtn');
         const authPanel = document.getElementById('authPanel');
         const closeAuthBtn = document.getElementById('closeAuthBtn');
@@ -312,6 +311,10 @@
         const historyPanel = document.getElementById('historyPanel');
         const closeHistoryBtn = document.getElementById('closeHistoryBtn');
         const translationHistoryDiv = document.getElementById('translationHistory');
+        
+        // Settings Elements
+        const autoSpeakToggle = document.getElementById('autoSpeakToggle');
+        const recordingModeRadios = document.querySelectorAll('input[name="recordingMode"]');
 
         // Auth Elements
         const emailInput = document.getElementById('emailInput');
@@ -334,6 +337,7 @@
             appId: "1:110225482882:web:c3cdb03d508436ff17c09b"
         };
 
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -346,9 +350,10 @@
             console.error("Lỗi khởi tạo Firebase AI Logic:", error);
             showUIMessage("Lỗi khởi tạo dịch vụ AI.", 5000);
             micButton.disabled = true;
+            micButton.classList.add('bg-gray-400', 'cursor-not-allowed');
         }
 
-        // --- State & Settings ---
+        // --- State Variables ---
         let recognition;
         let isRecording = false; 
         let isContinuousModeActive = false; 
@@ -358,8 +363,7 @@
         
         let appSettings = {
             autoSpeak: false,
-            recordingMode: 'hold',
-            bilingualMode: false 
+            recordingMode: 'hold'
         };
         
         const languageMap = {
@@ -368,20 +372,6 @@
             "en": { name: "English", ttsName: "en-US", geminiName: "English" },
             "vi": { name: "Tiếng Việt", ttsName: "vi-VN", geminiName: "Vietnamese" }
         };
-
-        // --- Stability Workarounds ---
-        // FIX: Add a periodic ping to keep speech synthesis alive in some browsers (e.g., Chrome)
-        try {
-            setInterval(() => {
-                if (window.speechSynthesis && (window.speechSynthesis.speaking || window.speechSynthesis.pending)) {
-                    window.speechSynthesis.pause();
-                    window.speechSynthesis.resume();
-                }
-            }, 5000);
-        } catch (e) {
-            console.warn("Could not set up SpeechSynthesis ping.", e);
-        }
-
 
         // --- UI Functions ---
         function showUIMessage(message, duration = 3000) {
@@ -400,9 +390,18 @@
             let bubbleClass = '';
             
             switch(type) {
-                case 'user': bubbleWrapper.className = 'flex justify-end'; bubbleClass = 'user-bubble'; break;
-                case 'assistant': bubbleWrapper.className = 'flex justify-start'; bubbleClass = 'assistant-bubble'; break;
-                case 'info': bubbleWrapper.className = 'flex justify-center'; bubbleClass = 'info-bubble'; break;
+                case 'user':
+                    bubbleWrapper.className = 'flex justify-end';
+                    bubbleClass = 'user-bubble';
+                    break;
+                case 'assistant':
+                    bubbleWrapper.className = 'flex justify-start';
+                    bubbleClass = 'assistant-bubble';
+                    break;
+                case 'info':
+                    bubbleWrapper.className = 'flex justify-center';
+                    bubbleClass = 'info-bubble';
+                    break;
             }
             
             const bubble = document.createElement('div');
@@ -410,10 +409,17 @@
             bubble.className = `bubble ${bubbleClass}`;
 
             let actionsHTML = '';
-            if (type === 'assistant') actionsHTML = `<button class="tts-button p-1 hover:bg-black/10 rounded-full" data-lang="${lang}" title="Nghe lại" aria-label="Nghe lại"><i class="fas fa-volume-up text-xs"></i></button>`;
-            if (type === 'user' || type === 'assistant') actionsHTML += `<button class="copy-button p-1 hover:bg-black/10 rounded-full" title="Sao chép" aria-label="Sao chép"><i class="fas fa-copy text-xs"></i></button>`;
+            if (type === 'assistant') {
+                actionsHTML = `<button class="tts-button p-1 hover:bg-black/10 rounded-full" data-lang="${lang}" title="Nghe lại" aria-label="Nghe lại"><i class="fas fa-volume-up text-xs"></i></button>`;
+            }
+            if (type === 'user' || type === 'assistant') {
+                 actionsHTML += `<button class="copy-button p-1 hover:bg-black/10 rounded-full" title="Sao chép" aria-label="Sao chép"><i class="fas fa-copy text-xs"></i></button>`;
+            }
 
-            bubble.innerHTML = `<div class="text-content">${text}</div>${actionsHTML ? `<div class="bubble-actions flex items-center justify-end space-x-2 mt-2">${actionsHTML}</div>` : ''}`;
+            bubble.innerHTML = `
+                <div class="text-content">${text}</div>
+                ${actionsHTML ? `<div class="bubble-actions flex items-center justify-end space-x-2 mt-2">${actionsHTML}</div>` : ''}
+            `;
             
             bubbleWrapper.appendChild(bubble);
             conversationView.appendChild(bubbleWrapper);
@@ -435,9 +441,13 @@
             recognition.lang = sourceLangSelect.value;
             
             recognition.onstart = () => {
+                permissionOverlay.style.display = 'none';
                 isRecording = true;
                 finalTranscriptForBubble = ''; 
-                currentListenBubbleId = createBubble('<div class="listening-indicator"><span></span><span></span><span></span></div>', 'user');
+                currentListenBubbleId = createBubble(
+                    '<div class="listening-indicator"><span></span><span></span><span></span></div>',
+                     'user'
+                );
                 micButton.classList.add('recording');
                 micButton.querySelector('i').className = 'fas fa-stop text-xl';
             };
@@ -446,8 +456,12 @@
                 let interimTranscript = '';
                 let finalChunk = '';
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) finalChunk += event.results[i][0].transcript;
-                    else interimTranscript += event.results[i][0].transcript;
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalChunk += transcript;
+                    } else {
+                        interimTranscript += transcript;
+                    }
                 }
                 finalTranscriptForBubble += finalChunk;
                 const listeningBubble = document.getElementById(currentListenBubbleId);
@@ -458,43 +472,44 @@
             };
             
             recognition.onerror = (event) => {
+                console.error("Speech recognition error:", event.error);
                 const listeningBubble = document.getElementById(currentListenBubbleId);
                 if (listeningBubble) listeningBubble.parentElement.remove();
                 currentListenBubbleId = null;
 
-                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') permissionOverlay.style.display = 'flex';
-                else if (event.error === 'no-speech') createBubble("Tôi không nghe rõ bạn nói. Vui lòng thử lại.", 'info');
+                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                    permissionOverlay.style.display = 'flex';
+                    micButton.disabled = true;
+                } else if (event.error === 'no-speech') {
+                    // NEW: Handle no-speech error gracefully
+                    createBubble("Tôi không nghe rõ bạn nói. Vui lòng thử lại.", 'info');
+                }
                 
-                if (event.error !== 'no-speech') isContinuousModeActive = false;
+                if (event.error !== 'no-speech') {
+                     isContinuousModeActive = false;
+                }
                  micButton.classList.remove('recording');
                  micButton.querySelector('i').className = 'fas fa-microphone-alt text-xl';
-                 isRecording = false;
+                 isRecording = false; // Ensure state is reset
             };
 
-            recognition.onend = async () => {
+            recognition.onend = () => {
                 isRecording = false;
                 const transcriptToProcess = finalTranscriptForBubble.trim();
                 const listeningBubble = document.getElementById(currentListenBubbleId);
-                let processedSuccessfully = false;
-
+                
                 if (listeningBubble) {
                      if (transcriptToProcess) {
                         listeningBubble.querySelector('.text-content').textContent = transcriptToProcess;
-                        await translateAndDisplay(transcriptToProcess);
-                        processedSuccessfully = true;
-                     } else listeningBubble.parentElement.remove();
+                        translateAndDisplay(transcriptToProcess);
+                     } else {
+                        listeningBubble.parentElement.remove();
+                     }
                 }
                 currentListenBubbleId = null;
 
                 if (appSettings.recordingMode === 'continuous' && isContinuousModeActive) {
-                    if (appSettings.bilingualMode && processedSuccessfully) {
-                         swapLanguages();
-                         // FIX: Add a feedback bubble to inform the user of the language change
-                         createBubble(`Bây giờ đang nghe bằng ${languageMap[sourceLangSelect.value].name}...`, 'info');
-                         setTimeout(() => { if (isContinuousModeActive) recognition.start(); }, 500);
-                    } else {
-                         setTimeout(() => { if (isContinuousModeActive) recognition.start(); }, 200);
-                    }
+                    setTimeout(() => { if(isContinuousModeActive) recognition.start(); }, 200);
                 } else {
                     isContinuousModeActive = false;
                     micButton.classList.remove('recording');
@@ -503,48 +518,34 @@
             };
         }
 
-        // FIX: Fortified speakText function to prevent it from getting stuck
-        function speakText(text, langCode) {
-            return new Promise((resolve) => {
-                if (!text || !langCode || !window.speechSynthesis) {
-                    resolve();
-                    return;
-                }
-                
-                // Safety net: resolve after a calculated time + buffer, in case onend never fires.
-                const estimatedTime = (text.length / 10) * 1000 + 2000; // Roughly 10 chars/sec + 2s buffer
-                const safetyTimeout = setTimeout(resolve, Math.max(estimatedTime, 3000)); // Minimum 3 seconds
-
-                speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = languageMap[langCode]?.ttsName || langCode;
-                utterance.onend = () => {
-                    clearTimeout(safetyTimeout);
-                    resolve();
-                };
-                utterance.onerror = (e) => {
-                    console.error("Speech synthesis error:", e);
-                    clearTimeout(safetyTimeout);
-                    resolve();
-                };
-                speechSynthesis.speak(utterance);
-            });
-        }
-
         async function translateAndDisplay(text) {
-            if (!generativeAIModel) return showUIMessage("Dịch vụ AI chưa sẵn sàng.", 4000);
+            if (!generativeAIModel) {
+                showUIMessage("Dịch vụ AI chưa sẵn sàng.", 4000);
+                return;
+            }
+
             const assistantBubbleId = createBubble('<span class="spinner"></span>', 'assistant', targetLangSelect.value);
             const assistantBubble = document.getElementById(assistantBubbleId);
+            
             try {
                 const sourceLangName = languageMap[sourceLangSelect.value].geminiName;
                 const targetLangName = languageMap[targetLangSelect.value].geminiName;
                 const prompt = `Translate the following ${sourceLangName} text to ${targetLangName}. Provide only the translation, without any additional comments, context, or quotation marks: "${text}"`;
+                
                 const result = await generativeAIModel.generateContent(prompt);
                 const response = await result.response;
                 const translatedText = response.text().trim();
+
                 assistantBubble.querySelector('.text-content').textContent = translatedText;
-                if (appSettings.autoSpeak && translatedText) await speakText(translatedText, targetLangSelect.value);
-                if (auth.currentUser && text && translatedText) saveToHistory(text, translatedText, sourceLangSelect.value, targetLangSelect.value);
+                
+                if (appSettings.autoSpeak && translatedText) {
+                    speakText(translatedText, targetLangSelect.value);
+                }
+
+                if (auth.currentUser && text && translatedText) {
+                    saveToHistory(text, translatedText, sourceLangSelect.value, targetLangSelect.value);
+                }
+
             } catch (error) {
                 console.error("Translation error:", error);
                 assistantBubble.querySelector('.text-content').innerHTML = `<span class="text-red-500">Lỗi dịch.</span>`;
@@ -552,24 +553,45 @@
         }
         
         async function saveToHistory(original, translated, sourceLang, targetLang) {
-             if (!auth.currentUser) return;
+             const user = auth.currentUser;
+             if (!user) return;
              try {
                 await addDoc(collection(db, "translations"), {
-                    userId: auth.currentUser.uid, originalText: original, translatedText: translated,
-                    sourceLang: sourceLang, targetLang: targetLang, createdAt: serverTimestamp()
+                    userId: user.uid,
+                    originalText: original,
+                    translatedText: translated,
+                    sourceLang: sourceLang,
+                    targetLang: targetLang,
+                    createdAt: serverTimestamp()
                 });
-            } catch (e) { console.error("Error saving translation: ", e); }
+            } catch (e) {
+                console.error("Error saving translation: ", e);
+            }
         }
 
+        function speakText(text, langCode) {
+            if (!text || !langCode) return;
+            speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = languageMap[langCode]?.ttsName || langCode;
+            speechSynthesis.speak(utterance);
+        }
+        
+        // NEW: Function to speak multiple texts sequentially
         function speakSequentially(textsToSpeak) {
             speechSynthesis.cancel();
             let currentIndex = 0;
+
             function speakNext() {
                 if (currentIndex >= textsToSpeak.length) return;
+                
                 const item = textsToSpeak[currentIndex];
                 const utterance = new SpeechSynthesisUtterance(item.text);
                 utterance.lang = languageMap[item.lang]?.ttsName || item.lang;
-                utterance.onend = () => { currentIndex++; speakNext(); };
+                utterance.onend = () => {
+                    currentIndex++;
+                    speakNext();
+                };
                 speechSynthesis.speak(utterance);
             }
             speakNext();
@@ -582,18 +604,30 @@
                 createBubble(text, 'user');
                 translateAndDisplay(text);
                 textInput.value = '';
-                textInput.style.height = 'auto';
+                textInput.style.height = 'auto'; // Reset height after sending
             }
         }
+        
         sendButton.addEventListener('click', handleSendFromInput);
-        textInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendFromInput(); }});
-        textInput.addEventListener('input', () => { textInput.style.height = 'auto'; textInput.style.height = `${textInput.scrollHeight}px`; });
+        textInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendFromInput();
+            }
+        });
+        textInput.addEventListener('input', () => {
+            textInput.style.height = 'auto';
+            textInput.style.height = `${textInput.scrollHeight}px`;
+        });
+
 
         micButton.addEventListener('click', (e) => {
             e.preventDefault();
             if (micButton.disabled) return;
             switch (appSettings.recordingMode) {
-                case 'toggle': isRecording ? recognition.stop() : recognition.start(); break;
+                case 'toggle':
+                    isRecording ? recognition.stop() : recognition.start();
+                    break;
                 case 'continuous':
                     if (isContinuousModeActive) {
                         isContinuousModeActive = false; 
@@ -605,76 +639,95 @@
                     break;
             }
         });
+        
         micButton.addEventListener('mousedown', (e) => { if (appSettings.recordingMode === 'hold') { e.preventDefault(); if (!isRecording && !micButton.disabled) recognition.start(); } });
         micButton.addEventListener('mouseup', (e) => { if (appSettings.recordingMode === 'hold') { e.preventDefault(); if (isRecording) recognition.stop(); } });
         micButton.addEventListener('touchstart', (e) => { if (appSettings.recordingMode === 'hold') { e.preventDefault(); if (!isRecording && !micButton.disabled) recognition.start(); } }, { passive: false });
         micButton.addEventListener('touchend', (e) => { if (appSettings.recordingMode === 'hold') { e.preventDefault(); if (isRecording) recognition.stop(); } });
 
-        function swapLanguages() {
+        swapLangButton.addEventListener('click', () => {
             const currentSource = sourceLangSelect.value;
             const currentTarget = targetLangSelect.value;
             sourceLangSelect.value = (currentTarget === 'en') ? 'en-US' : 'vi-VN';
             targetLangSelect.value = (currentSource === 'en-US') ? 'en' : 'vi';
-            if (recognition) recognition.lang = sourceLangSelect.value;
-        }
-        swapLangButton.addEventListener('click', () => { swapLanguages(); showUIMessage("Đã đảo chiều ngôn ngữ", 2000); });
-        sourceLangSelect.addEventListener('change', () => { if (recognition) recognition.lang = sourceLangSelect.value; });
+            if (recognition) { recognition.lang = sourceLangSelect.value; }
+            showUIMessage("Đã đảo chiều ngôn ngữ", 2000);
+        });
+
+        sourceLangSelect.addEventListener('change', () => { if (recognition) { recognition.lang = sourceLangSelect.value; } });
 
         conversationView.addEventListener('click', (e) => {
             const ttsButton = e.target.closest('.tts-button');
             const copyButton = e.target.closest('.copy-button');
-            if (ttsButton) speakText(ttsButton.closest('.bubble').querySelector('.text-content').textContent, ttsButton.dataset.lang);
-            if (copyButton) navigator.clipboard.writeText(copyButton.closest('.bubble').querySelector('.text-content').textContent).then(() => showUIMessage("Đã sao chép!", 1500));
+            if (ttsButton) {
+                const textToSpeak = ttsButton.closest('.bubble').querySelector('.text-content').textContent;
+                const lang = ttsButton.dataset.lang;
+                speakText(textToSpeak, lang);
+            }
+            if (copyButton) {
+                const textToCopy = copyButton.closest('.bubble').querySelector('.text-content').textContent;
+                 navigator.clipboard.writeText(textToCopy).then(() => {
+                    showUIMessage("Đã sao chép!", 1500);
+                }).catch(err => console.error('Copy failed:', err));
+            }
         });
         
+        // NEW: Event delegation for history panel
         translationHistoryDiv.addEventListener('click', (e) => {
             const historyItem = e.target.closest('.history-item');
             if (!historyItem) return;
+
             const listenBtn = e.target.closest('.history-listen-btn');
             const reuseBtn = e.target.closest('.history-reuse-btn');
-            const { original, translated, sourceLang, targetLang } = historyItem.dataset;
-            if (listenBtn) speakSequentially([{ text: original, lang: sourceLang }, { text: translated, lang: targetLang }]);
-            if (reuseBtn) { createBubble(original, 'user'); createBubble(translated, 'assistant', targetLang); closeAllPanels(); }
+
+            const originalText = historyItem.dataset.original;
+            const translatedText = historyItem.dataset.translated;
+            const sourceLang = historyItem.dataset.sourceLang;
+            const targetLang = historyItem.dataset.targetLang;
+
+            if (listenBtn) {
+                speakSequentially([
+                    { text: originalText, lang: sourceLang },
+                    { text: translatedText, lang: targetLang }
+                ]);
+            }
+
+            if (reuseBtn) {
+                createBubble(originalText, 'user');
+                createBubble(translatedText, 'assistant', targetLang);
+                closeAllPanels();
+            }
         });
+
 
         // --- Settings & Panels ---
         function saveSettings() { localStorage.setItem('translatorAppSettings', JSON.stringify(appSettings)); }
         function loadSettings() {
             const savedSettings = localStorage.getItem('translatorAppSettings');
-            if (savedSettings) appSettings = { ...appSettings, ...JSON.parse(savedSettings) };
+            if (savedSettings) { appSettings = JSON.parse(savedSettings); }
             autoSpeakToggle.checked = appSettings.autoSpeak;
-            bilingualToggle.checked = appSettings.bilingualMode;
             document.querySelector(`input[name="recordingMode"][value="${appSettings.recordingMode}"]`).checked = true;
             updateMicInstruction();
-            updateBilingualToggleState();
         }
         function updateMicInstruction() {
             if (appSettings.recordingMode === 'hold') micInstruction.textContent = "Nhấn & Giữ Micro để nói";
             else if (appSettings.recordingMode === 'toggle') micInstruction.textContent = "Nhấn Micro để Bật/Tắt";
-            else micInstruction.textContent = "Nhấn Micro để bắt đầu/dừng Trò chuyện";
-        }
-        function updateBilingualToggleState() {
-            const isContinuous = appSettings.recordingMode === 'continuous';
-            bilingualToggleContainer.style.opacity = isContinuous ? '1' : '0.5';
-            bilingualToggleContainer.style.pointerEvents = isContinuous ? 'auto' : 'none';
-            bilingualToggle.disabled = !isContinuous;
-            if (!isContinuous) {
-                bilingualToggle.checked = false;
-                appSettings.bilingualMode = false;
-                saveSettings();
-            }
+            else micInstruction.textContent = "Nhấn Micro để bắt đầu/dừng Chế độ Trò chuyện";
         }
         autoSpeakToggle.addEventListener('change', (e) => { appSettings.autoSpeak = e.target.checked; saveSettings(); });
-        bilingualToggle.addEventListener('change', (e) => { appSettings.bilingualMode = e.target.checked; saveSettings(); });
-        recordingModeRadios.forEach(radio => radio.addEventListener('change', (e) => {
-            if (e.target.checked) {
-                if (isRecording) { isContinuousModeActive = false; recognition.stop(); }
-                appSettings.recordingMode = e.target.value;
-                updateMicInstruction();
-                updateBilingualToggleState();
-                saveSettings();
-            }
-        }));
+        recordingModeRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    if (isRecording) {
+                        isContinuousModeActive = false;
+                        recognition.stop();
+                    }
+                    appSettings.recordingMode = e.target.value;
+                    updateMicInstruction();
+                    saveSettings();
+                }
+            });
+        });
 
         function closeAllPanels() {
             settingsPanel.classList.add('translate-x-full');
@@ -701,30 +754,58 @@
                 if (unsubscribeHistory) unsubscribeHistory();
             }
         });
-        registerButton.addEventListener('click', async () => { const { value: email } = emailInput; const { value: password } = passwordInput; if (!email || !password) return showUIMessage("Vui lòng nhập email và mật khẩu."); try { await createUserWithEmailAndPassword(auth, email, password); showUIMessage("Đăng ký thành công!"); emailInput.value = ''; passwordInput.value = ''; } catch (error) { showUIMessage(`Lỗi đăng ký: ${error.code}`, 5000); } });
-        loginButton.addEventListener('click', async () => { const { value: email } = emailInput; const { value: password } = passwordInput; if (!email || !password) return showUIMessage("Vui lòng nhập email và mật khẩu."); try { await signInWithEmailAndPassword(auth, email, password); showUIMessage("Đăng nhập thành công!"); emailInput.value = ''; passwordInput.value = ''; authPanel.classList.add('translate-x-full'); } catch (error) { showUIMessage(`Lỗi đăng nhập: ${error.code}`, 5000); } });
-        logoutButton.addEventListener('click', async () => { try { await signOut(auth); showUIMessage("Đã đăng xuất."); } catch (error) { showUIMessage("Lỗi đăng xuất.", 5000); } });
+        registerButton.addEventListener('click', async () => { const email = emailInput.value; const password = passwordInput.value; if (!email || !password) { showUIMessage("Vui lòng nhập email và mật khẩu."); return; } try { await createUserWithEmailAndPassword(auth, email, password); showUIMessage("Đăng ký thành công!"); emailInput.value = ''; passwordInput.value = ''; } catch (error) { showUIMessage("Lỗi đăng ký: " + error.message, 5000); } });
+        loginButton.addEventListener('click', async () => { const email = emailInput.value; const password = passwordInput.value; if (!email || !password) { showUIMessage("Vui lòng nhập email và mật khẩu."); return; } try { await signInWithEmailAndPassword(auth, email, password); showUIMessage("Đăng nhập thành công!"); emailInput.value = ''; passwordInput.value = ''; authPanel.classList.add('translate-x-full'); } catch (error) { showUIMessage("Lỗi đăng nhập: " + error.message, 5000); } });
+        logoutButton.addEventListener('click', async () => { try { await signOut(auth); showUIMessage("Đã đăng xuất."); } catch (error) { showUIMessage("Lỗi đăng xuất: " + error.message, 5000); } });
 
         function loadTranslationHistory(userId) {
             if (unsubscribeHistory) unsubscribeHistory();
             const q = query(collection(db, "translations"), where("userId", "==", userId), orderBy("createdAt", "desc"));
+            
             unsubscribeHistory = onSnapshot(q, (querySnapshot) => {
-                translationHistoryDiv.innerHTML = querySnapshot.empty ? '<p class="text-center text-gray-500 text-sm">Chưa có lịch sử nào.</p>' : '';
+                if (querySnapshot.empty) {
+                    translationHistoryDiv.innerHTML = '<p class="text-center text-gray-500 text-sm">Chưa có lịch sử nào.</p>';
+                    return;
+                }
+                translationHistoryDiv.innerHTML = '';
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
                     const item = document.createElement('div');
-                    item.className = 'history-item p-3 rounded-lg bg-gray-100 border border-gray-200 cursor-pointer hover:bg-gray-200';
-                    item.dataset.original = data.originalText; item.dataset.translated = data.translatedText;
-                    item.dataset.sourceLang = data.sourceLang; item.dataset.targetLang = data.targetLang;
-                    item.innerHTML = `<p class="text-sm text-gray-800 pointer-events-none">${data.originalText}</p><p class="text-sm font-semibold text-blue-600 mt-1 pointer-events-none">${data.translatedText}</p><div class="flex justify-between items-center mt-2"><div class="text-xs text-gray-400 pointer-events-none">${new Date(data.createdAt?.seconds * 1000).toLocaleString('vi-VN')}</div><div class="space-x-2"><button class="history-listen-btn p-2 w-8 h-8 rounded-full hover:bg-gray-300" title="Nghe lại"><i class="fas fa-volume-up text-xs text-gray-600"></i></button><button class="history-reuse-btn p-2 w-8 h-8 rounded-full hover:bg-gray-300" title="Dùng lại"><i class="fas fa-redo-alt text-xs text-gray-600"></i></button></div></div>`;
+                    // NEW: Add data attributes to the item for interaction
+                    item.className = 'history-item p-3 rounded-lg bg-gray-100 border border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors';
+                    item.dataset.original = data.originalText;
+                    item.dataset.translated = data.translatedText;
+                    item.dataset.sourceLang = data.sourceLang;
+                    item.dataset.targetLang = data.targetLang;
+                    
+                    // NEW: HTML structure with action buttons
+                    item.innerHTML = `
+                        <p class="text-sm text-gray-800 pointer-events-none">${data.originalText}</p>
+                        <p class="text-sm font-semibold text-blue-600 mt-1 pointer-events-none">${data.translatedText}</p>
+                        <div class="flex justify-between items-center mt-2">
+                             <div class="text-xs text-gray-400 pointer-events-none">${new Date(data.createdAt?.seconds * 1000).toLocaleString('vi-VN')}</div>
+                             <div class="space-x-2">
+                                <button class="history-listen-btn p-2 w-8 h-8 rounded-full hover:bg-gray-300" title="Nghe lại">
+                                    <i class="fas fa-volume-up text-xs text-gray-600"></i>
+                                </button>
+                                <button class="history-reuse-btn p-2 w-8 h-8 rounded-full hover:bg-gray-300" title="Dùng lại">
+                                    <i class="fas fa-redo-alt text-xs text-gray-600"></i>
+                                </button>
+                             </div>
+                        </div>
+                    `;
                     translationHistoryDiv.appendChild(item);
                 });
-            }, (error) => { console.error("Lỗi tải lịch sử: ", error); translationHistoryDiv.innerHTML = '<p class="text-center text-red-500 text-sm">Lỗi khi tải lịch sử.</p>'; });
+            }, (error) => {
+                console.error("Lỗi tải lịch sử: ", error);
+                translationHistoryDiv.innerHTML = '<p class="text-center text-red-500 text-sm">Lỗi khi tải lịch sử.</p>';
+            });
         }
         
         // --- Initial Load ---
         loadSettings();
         initializeSpeechRecognition();
+        
     </script>
 </body>
 </html>
