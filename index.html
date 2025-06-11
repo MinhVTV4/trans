@@ -39,6 +39,7 @@
             padding: 10px 15px;
             border-radius: 18px;
             word-wrap: break-word;
+            position: relative;
         }
         .original-bubble {
             background-color: #e2e8f0;
@@ -51,20 +52,92 @@
             border-bottom-right-radius: 4px;
             margin-top: 4px;
         }
+        .bubble-actions {
+            opacity: 0;
+            transition: opacity 0.2s;
+            position: absolute;
+            bottom: -12px;
+            display: flex;
+            gap: 4px;
+            background: white;
+            padding: 4px 6px;
+            border-radius: 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .translated-bubble .bubble-actions { right: 0; }
+        .original-bubble .bubble-actions { left: 0; }
+        .bubble:hover .bubble-actions { opacity: 1; }
+        .action-btn { color: #4b5563; }
+        .action-btn:hover { color: #1e293b; }
+
         .main-control-btn {
             transition: all 0.2s ease-in-out;
         }
         .main-control-btn.active {
             background-color: #dc2626 !important;
         }
+        .floating-panel {
+            position: absolute;
+            top: 0; right: 0;
+            width: 100%; max-width: 320px;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: -10px 0 25px rgba(0,0,0,0.1);
+            transform: translateX(105%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 40;
+            overflow-y: auto;
+        }
+        .floating-panel.active {
+            transform: translateX(0);
+        }
+        .message-box {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(17, 24, 39, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.5s, transform 0.5s;
+            pointer-events: none;
+        }
+        .message-box.show {
+            opacity: 1;
+            transform: translate(-50%, -10px);
+        }
+        @keyframes bubble-enter {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .bubble-wrapper {
+            animation: bubble-enter 0.3s ease-out;
+        }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen p-2">
 
-    <div class="w-full max-w-4xl h-[95vh] flex flex-col bg-white p-4 rounded-2xl shadow-xl">
-        <header class="text-center mb-4">
-            <h1 class="text-2xl font-bold text-gray-800">Chế độ Hội thoại Song phương</h1>
-            <p class="text-sm text-gray-500">Hai người nói, hai ngôn ngữ, một cuộc trò chuyện.</p>
+    <div class="w-full max-w-4xl h-[95vh] flex flex-col bg-white p-4 rounded-2xl shadow-xl relative overflow-hidden">
+        <header class="flex justify-between items-center text-center mb-4 relative z-10">
+            <div class="flex-1 text-left"></div>
+            <div class="flex-1">
+                <h1 class="text-2xl font-bold text-gray-800">Chế độ Hội thoại Song phương</h1>
+                <p class="text-sm text-gray-500">Hai người nói, hai ngôn ngữ, một cuộc trò chuyện.</p>
+            </div>
+            <div class="flex-1 text-right space-x-2">
+                 <button id="authToggleBtn" class="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" title="Tài khoản">
+                     <i class="fas fa-user-circle text-xl text-gray-600"></i>
+                 </button>
+                  <button id="historyToggleBtn" class="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" title="Lịch sử dịch">
+                     <i class="fas fa-history text-xl text-gray-600"></i>
+                 </button>
+            </div>
         </header>
         
         <div class="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4 overflow-hidden">
@@ -96,22 +169,54 @@
                 <i class="fas fa-play mr-2"></i>Bắt đầu Hội thoại
             </button>
         </footer>
+
+        <!-- Floating Panels -->
+        <div id="authPanel" class="floating-panel">
+            <button id="closeAuthBtn" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            <h3 class="text-lg font-semibold text-gray-700 mb-4 text-center">Tài Khoản</h3>
+            <div id="authForm" style="display: block;">
+                <input type="email" id="emailInput" class="w-full px-3 py-2 border rounded-md mb-2" placeholder="Email" autocomplete="email">
+                <input type="password" id="passwordInput" class="w-full px-3 py-2 border rounded-md mb-2" placeholder="Mật khẩu" autocomplete="current-password">
+                <div class="flex justify-center space-x-2">
+                    <button id="registerButton" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Đăng Ký</button>
+                    <button id="loginButton" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Đăng Nhập</button>
+                </div>
+            </div>
+            <div id="userInfo" style="display: none;" class="text-center">
+                <p id="userEmail" class="text-sm text-gray-700 mb-3"></p>
+                <button id="logoutButton" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">Đăng Xuất</button>
+            </div>
+            <div id="authStatus" class="text-xs text-gray-500 mt-4 text-center">Chưa đăng nhập.</div>
+        </div>
+
+        <div id="historyPanel" class="floating-panel">
+            <button id="closeHistoryBtn" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            <h3 class="text-lg font-semibold text-gray-700 mb-4 text-center">Lịch Sử Dịch</h3>
+            <div id="translationHistory" class="space-y-3"></div>
+        </div>
     </div>
     
+    <div id="messageBox" class="message-box"></div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
         import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-ai.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
 
         // --- DOM Elements ---
         const mainControlBtn = document.getElementById('mainControlBtn');
-        const panelA = document.getElementById('panelA');
-        const viewA = document.getElementById('viewA');
-        const statusA = document.getElementById('statusA');
-        const panelB = document.getElementById('panelB');
-        const viewB = document.getElementById('viewB');
-        const statusB = document.getElementById('statusB');
-
-        // --- Firebase Config & AI Initialization ---
+        const panelA = document.getElementById('panelA'), viewA = document.getElementById('viewA'), statusA = document.getElementById('statusA');
+        const panelB = document.getElementById('panelB'), viewB = document.getElementById('viewB'), statusB = document.getElementById('statusB');
+        const authToggleBtn = document.getElementById('authToggleBtn'), authPanel = document.getElementById('authPanel'), closeAuthBtn = document.getElementById('closeAuthBtn');
+        const historyToggleBtn = document.getElementById('historyToggleBtn'), historyPanel = document.getElementById('historyPanel'), closeHistoryBtn = document.getElementById('closeHistoryBtn');
+        const messageBox = document.getElementById('messageBox');
+        const emailInput = document.getElementById('emailInput'), passwordInput = document.getElementById('passwordInput');
+        const registerButton = document.getElementById('registerButton'), loginButton = document.getElementById('loginButton'), logoutButton = document.getElementById('logoutButton');
+        const authForm = document.getElementById('authForm'), userInfo = document.getElementById('userInfo'), userEmailDisplay = document.getElementById('userEmail'), authStatus = document.getElementById('authStatus');
+        const translationHistoryDiv = document.getElementById('translationHistory');
+        
+        // --- Firebase Config, AI, Auth, DB Initialization ---
         const firebaseConfig = {
             apiKey: "AIzaSyDRS3wkou1M7RjCqBdBwTmNkvcCzGANgxA", 
             authDomain: "cardnew-bfbce.firebaseapp.com",
@@ -121,19 +226,34 @@
             appId: "1:110225482882:web:c3cdb03d508436ff17c09b"
         };
         const app = initializeApp(firebaseConfig);
-        let generativeAIModel;
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        let generativeAIModel, unsubscribeHistory = null;
         try {
             const firebaseAIService = getAI(app, { backend: new GoogleAIBackend() });
             generativeAIModel = getGenerativeModel(firebaseAIService, { model: "gemini-1.5-flash" });
         } catch (error) {
             console.error("AI Init Error:", error);
-            mainControlBtn.disabled = true;
-            mainControlBtn.textContent = "Lỗi khởi tạo AI";
+            mainControlBtn.disabled = true; mainControlBtn.textContent = "Lỗi khởi tạo AI";
         }
         
         // --- State ---
         let recognitionA, recognitionB;
         let isConversationActive = false;
+        
+        // --- UI Functions ---
+        function showUIMessage(message, duration = 2000) {
+            messageBox.textContent = message;
+            messageBox.classList.add('show');
+            setTimeout(() => messageBox.classList.remove('show'), duration);
+        }
+
+        function speakText(text, lang) {
+            speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = lang;
+            speechSynthesis.speak(utterance);
+        }
         
         // --- Core Functions ---
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -157,9 +277,7 @@
 
             recognition.onresult = (event) => {
                 const transcript = event.results[event.results.length - 1][0].transcript.trim();
-                if (transcript) {
-                    onResultCallback(transcript);
-                }
+                if (transcript) onResultCallback(transcript);
             };
 
             recognition.onerror = (event) => {
@@ -173,13 +291,9 @@
             recognition.onend = () => {
                 const panel = (id === 'A') ? panelA : panelB;
                 panel.classList.remove('listening');
-                 const status = (id === 'A') ? statusA : statusB;
+                const status = (id === 'A') ? statusA : statusB;
                 status.className = 'status-dot status-idle';
-
-                // Auto-restart if conversation is still active
-                if (isConversationActive) {
-                    setTimeout(() => recognition.start(), 200);
-                }
+                if (isConversationActive) setTimeout(() => recognition.start(), 200);
             };
             return recognition;
         }
@@ -187,37 +301,47 @@
         async function handleResult(personId, transcript) {
             const isPersonA = personId === 'A';
             const sourceView = isPersonA ? viewA : viewB;
-            const sourceLang = isPersonA ? 'Vietnamese' : 'English';
-            const targetLang = isPersonA ? 'English' : 'Vietnamese';
+            const sourceLangName = isPersonA ? 'Vietnamese' : 'English';
+            const sourceLangCode = isPersonA ? 'vi-VN' : 'en-US';
+            const targetLangName = isPersonA ? 'English' : 'Vietnamese';
+            const targetLangCode = isPersonA ? 'en-US' : 'vi-VN';
             const status = isPersonA ? statusA : statusB;
 
-            // Display original bubble
-            addBubble(sourceView, transcript, true);
+            addBubble(sourceView, transcript, true, sourceLangCode);
             status.className = 'status-dot status-translating';
 
             try {
-                const prompt = `Translate the following ${sourceLang} text to ${targetLang}. Provide only the translation, without any additional comments, context, or quotation marks: "${transcript}"`;
+                const prompt = `Translate the following ${sourceLangName} text to ${targetLangName}. Provide only the translation, without any additional comments, context, or quotation marks: "${transcript}"`;
                 const result = await generativeAIModel.generateContent(prompt);
                 const translatedText = result.response.text().trim();
-                addBubble(sourceView, translatedText, false);
+                addBubble(sourceView, translatedText, false, targetLangCode);
+                
+                if (auth.currentUser) {
+                    saveToHistory(transcript, translatedText, sourceLangCode, targetLangCode);
+                }
             } catch(error) {
                 console.error("Translation error:", error);
-                addBubble(sourceView, "Lỗi dịch.", false);
+                addBubble(sourceView, "Lỗi dịch.", false, targetLangCode);
             } finally {
                 status.className = 'status-dot status-listening';
             }
         }
 
-        function addBubble(view, text, isOriginal) {
-            if (view.querySelector('p')) {
-                view.innerHTML = ''; // Clear initial message
-            }
+        function addBubble(view, text, isOriginal, langCode) {
+            if (view.querySelector('p')) view.innerHTML = '';
+            
             const bubbleWrapper = document.createElement('div');
-            bubbleWrapper.className = `flex ${isOriginal ? 'justify-start' : 'justify-end'}`;
+            bubbleWrapper.className = `bubble-wrapper flex ${isOriginal ? 'justify-start' : 'justify-end'}`;
 
             const bubble = document.createElement('div');
             bubble.className = `bubble ${isOriginal ? 'original-bubble' : 'translated-bubble'}`;
-            bubble.textContent = text;
+            bubble.innerHTML = `
+                ${text}
+                <div class="bubble-actions">
+                    <button class="action-btn tts-btn" data-text="${text}" data-lang="${langCode}" title="Nghe lại"><i class="fas fa-volume-up"></i></button>
+                    <button class="action-btn copy-btn" data-text="${text}" title="Sao chép"><i class="fas fa-copy"></i></button>
+                </div>
+            `;
             
             bubbleWrapper.appendChild(bubble);
             view.appendChild(bubbleWrapper);
@@ -225,17 +349,11 @@
         }
 
         function startConversation() {
-            if (!recognitionA) {
-                 recognitionA = setupRecognition('A', 'vi-VN', (transcript) => handleResult('A', transcript));
-            }
-             if (!recognitionB) {
-                 recognitionB = setupRecognition('B', 'en-US', (transcript) => handleResult('B', transcript));
-            }
-
+            if (!recognitionA) recognitionA = setupRecognition('A', 'vi-VN', (transcript) => handleResult('A', transcript));
+            if (!recognitionB) recognitionB = setupRecognition('B', 'en-US', (transcript) => handleResult('B', transcript));
             isConversationActive = true;
             recognitionA.start();
             recognitionB.start();
-
             mainControlBtn.classList.add('active');
             mainControlBtn.innerHTML = '<i class="fas fa-stop mr-2"></i>Dừng Hội thoại';
         }
@@ -244,25 +362,84 @@
             isConversationActive = false;
             if (recognitionA) recognitionA.stop();
             if (recognitionB) recognitionB.stop();
-            
-            panelA.classList.remove('listening');
-            panelB.classList.remove('listening');
-            statusA.className = 'status-dot status-idle';
-            statusB.className = 'status-dot status-idle';
-
             mainControlBtn.classList.remove('active');
             mainControlBtn.innerHTML = '<i class="fas fa-play mr-2"></i>Bắt đầu Hội thoại';
         }
 
-        // --- Event Listener ---
+        // --- Event Listeners ---
         mainControlBtn.addEventListener('click', () => {
-            if (isConversationActive) {
-                stopConversation();
+            isConversationActive ? stopConversation() : startConversation();
+        });
+        
+        [viewA, viewB].forEach(view => {
+            view.addEventListener('click', (e) => {
+                const ttsBtn = e.target.closest('.tts-btn');
+                const copyBtn = e.target.closest('.copy-btn');
+                if (ttsBtn) speakText(ttsBtn.dataset.text, ttsBtn.dataset.lang);
+                if (copyBtn) {
+                    navigator.clipboard.writeText(copyBtn.dataset.text)
+                        .then(() => showUIMessage("Đã sao chép!"))
+                        .catch(() => showUIMessage("Lỗi sao chép."));
+                }
+            });
+        });
+        
+        // --- Panel & Auth Logic ---
+        authToggleBtn.addEventListener('click', () => authPanel.classList.add('active'));
+        closeAuthBtn.addEventListener('click', () => authPanel.classList.remove('active'));
+        historyToggleBtn.addEventListener('click', () => historyPanel.classList.add('active'));
+        closeHistoryBtn.addEventListener('click', () => historyPanel.classList.remove('active'));
+
+        // Auth listeners
+        registerButton.addEventListener('click', async () => { /* ... */ });
+        loginButton.addEventListener('click', async () => { /* ... */ });
+        logoutButton.addEventListener('click', async () => { /* ... */ });
+        
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                authForm.style.display = 'none'; userInfo.style.display = 'block';
+                userEmailDisplay.textContent = `Chào, ${user.email}`; authStatus.textContent = `Đã đăng nhập`;
+                loadTranslationHistory(user.uid);
             } else {
-                startConversation();
+                authForm.style.display = 'block'; userInfo.style.display = 'none';
+                userEmailDisplay.textContent = ''; authStatus.textContent = 'Chưa đăng nhập.';
+                translationHistoryDiv.innerHTML = '<p class="text-center text-gray-500 text-sm">Đăng nhập để xem lịch sử.</p>';
+                if (unsubscribeHistory) unsubscribeHistory();
             }
         });
-
+        // --- Copied Auth/History Functions ---
+        registerButton.addEventListener('click', async () => {
+            const email = emailInput.value; const password = passwordInput.value;
+            if (!email || !password) { showUIMessage("Vui lòng nhập email và mật khẩu."); return; }
+            try { await createUserWithEmailAndPassword(auth, email, password); showUIMessage("Đăng ký thành công!"); } catch (error) { showUIMessage("Lỗi đăng ký: " + error.message); }
+        });
+        loginButton.addEventListener('click', async () => {
+            const email = emailInput.value; const password = passwordInput.value;
+            if (!email || !password) { showUIMessage("Vui lòng nhập email và mật khẩu."); return; }
+            try { await signInWithEmailAndPassword(auth, email, password); showUIMessage("Đăng nhập thành công!"); authPanel.classList.remove('active'); } catch (error) { showUIMessage("Lỗi đăng nhập: " + error.message); }
+        });
+        logoutButton.addEventListener('click', async () => {
+            try { await signOut(auth); showUIMessage("Đã đăng xuất."); } catch (error) { showUIMessage("Lỗi đăng xuất: " + error.message); }
+        });
+        async function saveToHistory(original, translated, sourceLang, targetLang) {
+             const user = auth.currentUser; if (!user) return;
+             try { await addDoc(collection(db, "translations"), { userId: user.uid, originalText: original, translatedText: translated, sourceLang, targetLang, createdAt: serverTimestamp() }); } catch (e) { console.error("Error saving translation: ", e); }
+        }
+        function loadTranslationHistory(userId) {
+            if (unsubscribeHistory) unsubscribeHistory();
+            const q = query(collection(db, "translations"), where("userId", "==", userId), orderBy("createdAt", "desc"));
+            unsubscribeHistory = onSnapshot(q, (snapshot) => {
+                if (snapshot.empty) { translationHistoryDiv.innerHTML = '<p class="text-center text-gray-500 text-sm">Chưa có lịch sử nào.</p>'; return; }
+                translationHistoryDiv.innerHTML = '';
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const item = document.createElement('div');
+                    item.className = 'p-3 rounded-lg bg-gray-100 border border-gray-200';
+                    item.innerHTML = `<p class="text-sm text-gray-800"><b>Gốc:</b> ${data.originalText}</p><p class="text-sm font-semibold text-blue-600 mt-1"><b>Dịch:</b> ${data.translatedText}</p><div class="text-right text-xs text-gray-400 mt-2">${new Date(data.createdAt?.seconds * 1000).toLocaleString('vi-VN')}</div>`;
+                    translationHistoryDiv.appendChild(item);
+                });
+            }, (error) => { console.error("Lỗi tải lịch sử: ", error); });
+        }
     </script>
 </body>
 </html>
