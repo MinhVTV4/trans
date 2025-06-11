@@ -3,304 +3,115 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phiên Dịch Thời Gian Thực - Hai Chiều</title>
+    <title>Trình Phiên Dịch Song Phương</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
+            background-color: #e5e7eb;
         }
-        .transcript-box-container {
-            position: relative; 
+        .conversation-panel {
+            transition: all 0.3s ease-in-out;
+            border: 2px solid transparent;
         }
-        .transcript-box {
-            min-height: 80px; 
-            border: 1px solid #d1d5db;
-            padding: 10px;
-            padding-right: 30px; 
-            border-radius: 8px;
-            background-color: #ffffff;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-            overflow-y: auto; 
-            max-height: 120px; 
+        .conversation-panel.listening {
+            border-color: #3b82f6;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
         }
-        #rawTranscriptBox { 
-            background-color: #f9fafb; 
-            color: #4b5563; 
-            max-height: 100px;
-            margin-bottom: 1rem; 
-            font-style: normal; 
-        }
-        .transcript-action-btn {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background: none;
-            border: none;
-            color: #9ca3af; 
-            cursor: pointer;
-            font-size: 0.9rem;
-            padding: 2px;
-        }
-        .transcript-action-btn:hover {
-            color: #4b5563; 
-        }
-        .btn {
-            padding: 8px 16px; 
-            border-radius: 8px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-            font-size: 0.875rem; 
-        }
-        .btn-start { background-color: #2563eb; color: white; }
-        .btn-start:hover { background-color: #1d4ed8; }
-        .btn-stop { background-color: #dc2626; color: white; }
-        .btn-stop:hover { background-color: #b91c1c; }
-        .btn-primary { background-color: #16a34a; color: white; } 
-        .btn-primary:hover { background-color: #15803d; }
-        .btn-secondary { background-color: #6b7280; color: white; }
-        .btn-secondary:hover { background-color: #4b5563; }
-        .btn-icon { padding: 6px 10px; }
-
-
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
-        .status-recording { background-color: #ef4444; animation: pulse 1.5s infinite; }
-        .status-idle { background-color: #6b7280; }
-        @keyframes pulse {
-            0% { transform: scale(0.9); opacity: 0.7; }
-            50% { transform: scale(1.1); opacity: 1; }
-            100% { transform: scale(0.9); opacity: 0.7; }
-        }
-        .message-box {
-            position: fixed;
-            bottom: 15px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #333;
-            color: white;
-            padding: 8px 15px;
-            border-radius: 5px;
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.5s ease-in-out;
-            max-width: 90%;
-            text-align: center;
-            font-size: 0.875rem;
-        }
-        .message-box.show { opacity: 1; }
-        .permission-notice {
-            background-color: #fffbeb; color: #92400e;
-            padding: 8px; border-radius: 8px; border: 1px solid #fef3c7;
-            margin-bottom: 0.75rem; text-align: center; font-size: 0.8rem;
-        }
-        .auth-form input, .language-select select {
-            border: 1px solid #d1d5db; padding: 8px 10px; border-radius: 6px; margin-bottom: 0.5rem; width: 100%;
-            font-size: 0.875rem;
-        }
-         .language-select select { width: auto; min-width: 120px;}
-        .auth-container, .history-container, .language-select-container, .raw-transcript-container {
-            border: 1px solid #e5e7eb; padding: 1rem; border-radius: 8px; margin-top: 1rem; background-color: #f9fafb;
-        }
-        .auth-status { font-size: 0.8rem; color: #4b5563; margin-top: 0.5rem; text-align: center; }
-        .history-item {
-            background-color: #ffffff;
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 8px;
-            border: 1px solid #e5e7eb;
-            font-size: 0.875rem;
-        }
-        .history-item p { margin-bottom: 4px; }
-        .history-item .original { color: #374151; }
-        .history-item .translated { color: #1d4ed8; font-weight: 500; }
-        .history-item .timestamp { font-size: 0.75rem; color: #6b7280; text-align: right; }
-        #translationHistory { max-height: 200px; overflow-y: auto; }
-        
-        .spinner {
-            display: inline-block;
-            width: 1em;
-            height: 1em;
-            border: 2px solid currentColor;
-            border-right-color: transparent;
+        .status-dot {
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
-            animation: spinner-border .75s linear infinite;
-            vertical-align: text-bottom;
-            margin-left: 5px;
+            transition: background-color 0.3s;
         }
-        @keyframes spinner-border {
-            to { transform: rotate(360deg); }
+        .status-idle { background-color: #6b7280; }
+        .status-listening { background-color: #2563eb; animation: pulse-blue 1.5s infinite; }
+        .status-translating { background-color: #f59e0b; }
+        @keyframes pulse-blue {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
+            70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        .bubble {
+            max-width: 90%;
+            padding: 10px 15px;
+            border-radius: 18px;
+            word-wrap: break-word;
+        }
+        .original-bubble {
+            background-color: #e2e8f0;
+            color: #1e293b;
+            border-bottom-left-radius: 4px;
+        }
+        .translated-bubble {
+            background-color: #2563eb;
+            color: white;
+            border-bottom-right-radius: 4px;
+            margin-top: 4px;
+        }
+        .main-control-btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .main-control-btn.active {
+            background-color: #dc2626 !important;
         }
     </style>
 </head>
-<body class="flex flex-col items-center min-h-screen p-2 sm:p-4">
+<body class="flex items-center justify-center min-h-screen p-2">
 
-    <div class="w-full max-w-xl bg-white p-4 sm:p-6 rounded-xl shadow-xl">
+    <div class="w-full max-w-4xl h-[95vh] flex flex-col bg-white p-4 rounded-2xl shadow-xl">
         <header class="text-center mb-4">
-            <h1 class="text-xl sm:text-2xl font-bold text-gray-800">Phiên Dịch Thời Gian Thực</h1>
-            <p class="text-xs sm:text-sm text-gray-500">Dịch Hai Chiều & Firebase AI Logic SDK</p>
+            <h1 class="text-2xl font-bold text-gray-800">Chế độ Hội thoại Song phương</h1>
+            <p class="text-sm text-gray-500">Hai người nói, hai ngôn ngữ, một cuộc trò chuyện.</p>
         </header>
-
-        <!-- Firebase Auth UI -->
-        <div id="authContainer" class="auth-container mb-4">
-            <h3 class="text-md font-semibold text-gray-700 mb-2 text-center">Xác Thực Firebase</h3>
-            <div id="authForm" style="display: block;">
-                <input type="email" id="emailInput" placeholder="Email" autocomplete="email">
-                <input type="password" id="passwordInput" placeholder="Mật khẩu" autocomplete="current-password">
-                <div class="flex justify-center space-x-2 mb-2">
-                    <button id="registerButton" class="btn btn-primary">Đăng Ký</button>
-                    <button id="loginButton" class="btn btn-primary">Đăng Nhập</button>
-                </div>
-            </div>
-            <div id="userInfo" style="display: none;" class="text-center">
-                <p id="userEmail" class="text-sm text-gray-700"></p>
-                <button id="logoutButton" class="btn btn-secondary mt-1">Đăng Xuất</button>
-            </div>
-            <div id="authStatus" class="auth-status">Chưa đăng nhập.</div>
-        </div>
-
-        <!-- Language Selection -->
-        <div class="language-select-container mb-4 p-4 rounded-lg">
-            <div class="flex items-center justify-around space-x-2">
-                <div class="language-select text-center">
-                    <label for="sourceLangSelect" class="block text-sm font-medium text-gray-700 mb-1">Nói bằng:</label>
-                    <select id="sourceLangSelect" class="btn">
-                        <option value="en-US">Tiếng Anh</option>
-                        <option value="vi-VN">Tiếng Việt</option>
-                    </select>
-                </div>
-                <button id="swapLangButton" class="btn btn-secondary btn-icon" title="Đảo chiều ngôn ngữ">
-                    <i class="fas fa-exchange-alt"></i>
-                </button>
-                <div class="language-select text-center">
-                    <label for="targetLangSelect" class="block text-sm font-medium text-gray-700 mb-1">Dịch sang:</label>
-                    <select id="targetLangSelect" class="btn">
-                        <option value="vi">Tiếng Việt</option>
-                        <option value="en">Tiếng Anh</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-
-        <div id="permissionNotice" class="permission-notice" style="display: none;">
-            Ứng dụng này cần quyền truy cập microphone để hoạt động. Vui lòng cấp quyền khi được trình duyệt yêu cầu.
-        </div>
-
-        <div class="mb-4 text-center">
-            <button id="startButton" class="btn btn-start mr-2">
-                <span id="statusDot" class="status-dot status-idle"></span>Bắt đầu
-            </button>
-            <button id="stopButton" class="btn btn-stop" disabled>Dừng</button>
-        </div>
-
-        <!-- Raw Transcript Box -->
-        <div class="raw-transcript-container transcript-box-container mb-4">
-            <h2 class="text-md font-semibold text-gray-700 mb-1">Lời nói được ghi nhận (Thô):</h2>
-            <div id="rawTranscriptBox" class="transcript-box"></div>
-            <button id="clearRawTranscriptBtn" class="transcript-action-btn" title="Xóa lời nói thô"><i class="fas fa-times-circle"></i></button>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div class="transcript-box-container">
-                <h2 id="originalTextLabel" class="text-md font-semibold text-gray-700 mb-1">Chuẩn bị dịch:</h2>
-                <div id="originalText" class="transcript-box"></div>
-                <button id="clearOriginalTextBtn" class="transcript-action-btn" title="Xóa văn bản chuẩn bị dịch"><i class="fas fa-times-circle"></i></button>
-            </div>
-            <div class="transcript-box-container">
-                <h2 id="translatedTextLabel" class="text-md font-semibold text-gray-700 mb-1">Dịch (Tiếng Việt):</h2>
-                <div id="translatedText" class="transcript-box"></div>
-                <button id="copyTranslatedTextBtn" class="transcript-action-btn" title="Sao chép bản dịch" style="right: 30px;"><i class="fas fa-copy"></i></button>
-                <button id="clearTranslatedTextBtn" class="transcript-action-btn" title="Xóa bản dịch"><i class="fas fa-times-circle"></i></button>
-            </div>
-        </div>
-         <div class="text-center mb-4">
-            <button id="saveTranslationButton" class="btn btn-primary" style="display: none;">Lưu Bản Dịch Này</button>
-        </div>
-
-        <!-- Translation History -->
-        <div id="historyContainer" class="history-container" style="display: none;">
-            <h3 class="text-md font-semibold text-gray-700 mb-2 text-center">Lịch Sử Dịch</h3>
-            <div id="translationHistory" class="space-y-2">
-                <p class="text-center text-gray-500 text-sm">Chưa có lịch sử nào.</p>
-            </div>
-        </div>
-
-        <div class="text-xs text-gray-400 text-center mt-4">
-            Lưu ý: Nhận dạng giọng nói hoạt động tốt nhất trên Google Chrome.
-        </div>
-    </div>
-
-    <div id="messageBox" class="message-box"></div>
-
-    <!-- Firebase SDK -->
-    <script type="module">
-        // DOM Element Constants
-        const startButton = document.getElementById('startButton');
-        const stopButton = document.getElementById('stopButton');
-        const rawTranscriptBox = document.getElementById('rawTranscriptBox'); 
-        const originalTextBox = document.getElementById('originalText'); 
-        const translatedTextBox = document.getElementById('translatedText');
-        const statusDot = document.getElementById('statusDot');
-        const messageBox = document.getElementById('messageBox');
-        const permissionNotice = document.getElementById('permissionNotice');
-        const saveTranslationButton = document.getElementById('saveTranslationButton');
         
-        const emailInput = document.getElementById('emailInput');
-        const passwordInput = document.getElementById('passwordInput');
-        const registerButton = document.getElementById('registerButton');
-        const loginButton = document.getElementById('loginButton');
-        const logoutButton = document.getElementById('logoutButton');
-        const authForm = document.getElementById('authForm');
-        const userInfo = document.getElementById('userInfo');
-        const userEmailDisplay = document.getElementById('userEmail');
-        const authStatus = document.getElementById('authStatus');
+        <div class="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4 overflow-hidden">
+            <!-- Person A Panel -->
+            <div id="panelA" class="conversation-panel bg-gray-50 rounded-lg p-4 flex flex-col">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-lg font-semibold text-gray-700">Người nói Tiếng Việt</h2>
+                    <div id="statusA" class="status-dot status-idle" title="Trạng thái: Không hoạt động"></div>
+                </div>
+                <div id="viewA" class="flex-grow overflow-y-auto space-y-3 p-2 bg-white rounded-md">
+                     <p class="text-center text-gray-400 text-sm mt-4">Nội dung trò chuyện sẽ hiện ở đây...</p>
+                </div>
+            </div>
 
-        const historyContainer = document.getElementById('historyContainer');
-        const translationHistoryDiv = document.getElementById('translationHistory');
-
-        const sourceLangSelect = document.getElementById('sourceLangSelect');
-        const targetLangSelect = document.getElementById('targetLangSelect');
-        const swapLangButton = document.getElementById('swapLangButton');
-        const originalTextLabel = document.getElementById('originalTextLabel'); 
-        const translatedTextLabel = document.getElementById('translatedTextLabel');
-
-        const clearOriginalTextBtn = document.getElementById('clearOriginalTextBtn');
-        const clearTranslatedTextBtn = document.getElementById('clearTranslatedTextBtn');
-        const copyTranslatedTextBtn = document.getElementById('copyTranslatedTextBtn');
-        const clearRawTranscriptBtn = document.getElementById('clearRawTranscriptBtn');
-
-
-        // Import Firebase SDKs
+            <!-- Person B Panel -->
+            <div id="panelB" class="conversation-panel bg-gray-50 rounded-lg p-4 flex flex-col">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-lg font-semibold text-gray-700">Người nói Tiếng Anh</h2>
+                    <div id="statusB" class="status-dot status-idle" title="Trạng thái: Không hoạt động"></div>
+                </div>
+                <div id="viewB" class="flex-grow overflow-y-auto space-y-3 p-2 bg-white rounded-md">
+                    <p class="text-center text-gray-400 text-sm mt-4">Conversation content will appear here...</p>
+                </div>
+            </div>
+        </div>
+        
+        <footer class="text-center mt-4">
+            <button id="mainControlBtn" class="main-control-btn w-full max-w-xs mx-auto px-6 py-4 bg-green-600 text-white font-bold rounded-xl text-lg hover:bg-green-700">
+                <i class="fas fa-play mr-2"></i>Bắt đầu Hội thoại
+            </button>
+        </footer>
+    </div>
+    
+    <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-        import { 
-            getAuth, 
-            createUserWithEmailAndPassword, 
-            signInWithEmailAndPassword, 
-            signOut, 
-            onAuthStateChanged 
-        } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
-        import { 
-            getFirestore, 
-            collection, 
-            addDoc,
-            query, 
-            where, 
-            orderBy, 
-            limit, 
-            getDocs, 
-            onSnapshot, 
-            serverTimestamp 
-        } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
-        import { 
-            getAI, 
-            getGenerativeModel, 
-            GoogleAIBackend 
-        } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-ai.js";
+        import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-ai.js";
 
-        // Firebase Config
+        // --- DOM Elements ---
+        const mainControlBtn = document.getElementById('mainControlBtn');
+        const panelA = document.getElementById('panelA');
+        const viewA = document.getElementById('viewA');
+        const statusA = document.getElementById('statusA');
+        const panelB = document.getElementById('panelB');
+        const viewB = document.getElementById('viewB');
+        const statusB = document.getElementById('statusB');
+
+        // --- Firebase Config & AI Initialization ---
         const firebaseConfig = {
             apiKey: "AIzaSyDRS3wkou1M7RjCqBdBwTmNkvcCzGANgxA", 
             authDomain: "cardnew-bfbce.firebaseapp.com",
@@ -309,641 +120,149 @@
             messagingSenderId: "110225482882",
             appId: "1:110225482882:web:c3cdb03d508436ff17c09b"
         };
-
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        // Initialize Firebase AI Logic
-        let firebaseAIService;
         let generativeAIModel;
-
-        function showUIMessage(message, duration = 3000) { 
-            if (messageBox) {
-                messageBox.textContent = message;
-                messageBox.classList.add('show');
-                setTimeout(() => {
-                    messageBox.classList.remove('show');
-                }, duration);
-            } else {
-                console.warn("messageBox is not available yet for:", message);
-            }
-        }
-
         try {
-            firebaseAIService = getAI(app, { backend: new GoogleAIBackend() });
-            generativeAIModel = getGenerativeModel(firebaseAIService, { model: "gemini-2.0-flash" }); 
-            console.log("Firebase AI Logic initialized with gemini-2.0-flash model.");
-            showUIMessage("Dịch vụ AI đã sẵn sàng!", 2000);
+            const firebaseAIService = getAI(app, { backend: new GoogleAIBackend() });
+            generativeAIModel = getGenerativeModel(firebaseAIService, { model: "gemini-1.5-flash" });
         } catch (error) {
-            console.error("Lỗi khởi tạo Firebase AI Logic:", error);
-            showUIMessage("Lỗi khởi tạo dịch vụ AI: " + error.message, 7000);
-            if (startButton) startButton.disabled = true; 
+            console.error("AI Init Error:", error);
+            mainControlBtn.disabled = true;
+            mainControlBtn.textContent = "Lỗi khởi tạo AI";
         }
-
-        // Language mapping for display and API
-        const languageMap = {
-            "en-US": { name: "Tiếng Anh", geminiName: "English" },
-            "vi-VN": { name: "Tiếng Việt", geminiName: "Vietnamese" },
-            "en": { name: "Tiếng Anh", geminiName: "English" }, 
-            "vi": { name: "Tiếng Việt", geminiName: "Vietnamese" } 
-        };
-
-        function updateLanguageLabels() {
-            const sourceLangValue = sourceLangSelect.value;
-            const targetLangValue = targetLangSelect.value;
-            originalTextLabel.textContent = `Chuẩn bị dịch (${languageMap[sourceLangValue]?.name || sourceLangValue}):`;
-            translatedTextLabel.textContent = `Dịch (${languageMap[targetLangValue]?.name || targetLangValue}):`;
-        }
-
-
-        // Speech Recognition & Translation
-        let recognition;
-        let isRecording = false;
-        const USER_PAUSE_TIMEOUT = 400; 
-        let userPauseTimer; 
         
-        let currentLiveTranscript = ""; // Stores the live evolving transcript from the current event for raw display
-        let accumulatedFinalTranscript = ""; // Accumulates ONLY final results to form segments for staging
-        let lastQueuedStagingSegment = ""; // To prevent re-queuing the exact same staging segment
+        // --- State ---
+        let recognitionA, recognitionB;
+        let isConversationActive = false;
+        
+        // --- Core Functions ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            mainControlBtn.disabled = true;
+            mainControlBtn.textContent = "Trình duyệt không hỗ trợ";
+        }
 
+        function setupRecognition(id, lang, onResultCallback) {
+            const recognition = new SpeechRecognition();
+            recognition.lang = lang;
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            
+            recognition.onstart = () => {
+                const panel = (id === 'A') ? panelA : panelB;
+                const status = (id === 'A') ? statusA : statusB;
+                panel.classList.add('listening');
+                status.className = 'status-dot status-listening';
+            };
 
-        // --- Translation Queue ---
-        let translationQueue = [];
-        let isProcessingQueue = false;
-
-        async function processTranslationQueue() {
-            if (isProcessingQueue || translationQueue.length === 0) {
-                return;
-            }
-            isProcessingQueue = true;
-            console.log(`Processing queue, ${translationQueue.length} items remaining.`);
-
-            const item = translationQueue.shift(); 
-            try {
-                if (item) {
-                    if(originalTextBox) { 
-                        const p = document.createElement('p');
-                        p.textContent = item.segmentToTranslate; 
-                        originalTextBox.innerHTML = ''; 
-                        originalTextBox.appendChild(p);
-                        originalTextBox.scrollTop = originalTextBox.scrollHeight;
-                    }
-                    await sendToTranslateWithFirebaseAI(item.segmentToTranslate, item.placeholderId);
+            recognition.onresult = (event) => {
+                const transcript = event.results[event.results.length - 1][0].transcript.trim();
+                if (transcript) {
+                    onResultCallback(transcript);
                 }
-            } catch (error) {
-                console.error("Critical error processing translation queue item:", error, item);
-                showUIMessage("Lỗi nghiêm trọng khi xử lý hàng đợi dịch.", 5000);
+            };
+
+            recognition.onerror = (event) => {
+                 console.error(`Recognition Error (${id}):`, event.error);
+                const panel = (id === 'A') ? panelA : panelB;
+                panel.classList.remove('listening');
+                const status = (id === 'A') ? statusA : statusB;
+                status.className = 'status-dot status-idle';
+            };
+
+            recognition.onend = () => {
+                const panel = (id === 'A') ? panelA : panelB;
+                panel.classList.remove('listening');
+                 const status = (id === 'A') ? statusA : statusB;
+                status.className = 'status-dot status-idle';
+
+                // Auto-restart if conversation is still active
+                if (isConversationActive) {
+                    setTimeout(() => recognition.start(), 200);
+                }
+            };
+            return recognition;
+        }
+
+        async function handleResult(personId, transcript) {
+            const isPersonA = personId === 'A';
+            const sourceView = isPersonA ? viewA : viewB;
+            const sourceLang = isPersonA ? 'Vietnamese' : 'English';
+            const targetLang = isPersonA ? 'English' : 'Vietnamese';
+            const status = isPersonA ? statusA : statusB;
+
+            // Display original bubble
+            addBubble(sourceView, transcript, true);
+            status.className = 'status-dot status-translating';
+
+            try {
+                const prompt = `Translate the following ${sourceLang} text to ${targetLang}. Provide only the translation, without any additional comments, context, or quotation marks: "${transcript}"`;
+                const result = await generativeAIModel.generateContent(prompt);
+                const translatedText = result.response.text().trim();
+                addBubble(sourceView, translatedText, false);
+            } catch(error) {
+                console.error("Translation error:", error);
+                addBubble(sourceView, "Lỗi dịch.", false);
             } finally {
-                isProcessingQueue = false;
+                status.className = 'status-dot status-listening';
             }
+        }
+
+        function addBubble(view, text, isOriginal) {
+            if (view.querySelector('p')) {
+                view.innerHTML = ''; // Clear initial message
+            }
+            const bubbleWrapper = document.createElement('div');
+            bubbleWrapper.className = `flex ${isOriginal ? 'justify-start' : 'justify-end'}`;
+
+            const bubble = document.createElement('div');
+            bubble.className = `bubble ${isOriginal ? 'original-bubble' : 'translated-bubble'}`;
+            bubble.textContent = text;
             
-            if (translationQueue.length > 0) {
-                setTimeout(processTranslationQueue, 50); 
-            } else {
-                console.log("Translation queue processed completely.");
-            }
+            bubbleWrapper.appendChild(bubble);
+            view.appendChild(bubbleWrapper);
+            view.scrollTop = view.scrollHeight;
         }
-        // --- End Translation Queue ---
 
-        // --- Forced Segmentation Timer ---
-        let maxUtteranceLengthTimer; 
-        const MAX_UTTERANCE_LENGTH_MS = 4000; 
-        // --- End Forced Segmentation Timer ---
-
-
-        function initializeSpeechRecognition() {
-            if (recognition) { 
-                recognition.stop();
+        function startConversation() {
+            if (!recognitionA) {
+                 recognitionA = setupRecognition('A', 'vi-VN', (transcript) => handleResult('A', transcript));
             }
-            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-                if (generativeAIModel && permissionNotice) permissionNotice.style.display = 'block'; 
-                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                recognition = new SpeechRecognition();
-                recognition.continuous = true; 
-                recognition.interimResults = true; 
-                recognition.lang = sourceLangSelect.value; 
-
-                recognition.onstart = () => {
-                    isRecording = true;
-                    startButton.disabled = true;
-                    stopButton.disabled = false;
-                    statusDot.classList.remove('status-idle');
-                    statusDot.classList.add('status-recording');
-                    startButton.childNodes[2].nodeValue = ' Đang ghi...';
-                    showUIMessage("Bắt đầu ghi âm...");
-                    if (permissionNotice) permissionNotice.style.display = 'none';
-                    if (saveTranslationButton) saveTranslationButton.style.display = 'none'; 
-                    
-                    currentLiveTranscript = "";
-                    accumulatedFinalTranscript = "";
-                    lastQueuedStagingSegment = "";
-                    if (rawTranscriptBox) rawTranscriptBox.innerHTML = ""; 
-                    if (originalTextBox) originalTextBox.innerHTML = "";
-                    if (translatedTextBox) translatedTextBox.innerHTML = "";
-                    translationQueue = []; 
-                    
-                    clearTimeout(maxUtteranceLengthTimer); 
-                    maxUtteranceLengthTimer = setTimeout(finalizeAndStageCurrentSegment, MAX_UTTERANCE_LENGTH_MS);
-                };
-
-                recognition.onresult = (event) => {
-                    clearTimeout(userPauseTimer); 
-                    clearTimeout(maxUtteranceLengthTimer); // Reset max utterance timer on any new result
-                    maxUtteranceLengthTimer = setTimeout(finalizeAndStageCurrentSegment, MAX_UTTERANCE_LENGTH_MS);
-
-                    let interim_transcript = '';
-                    for (let i = event.resultIndex; i < event.results.length; ++i) {
-                        if (event.results[i].isFinal) {
-                            accumulatedFinalTranscript += event.results[i][0].transcript + ' ';
-                            currentLiveTranscript = accumulatedFinalTranscript; // Update live with new final
-                            finalizeAndStageCurrentSegment(true); // Attempt to stage now that we have a final part
-                        } else {
-                            interim_transcript += event.results[i][0].transcript;
-                        }
-                    }
-                    currentLiveTranscript = accumulatedFinalTranscript + interim_transcript; // Show accumulated final + current interim
-
-                    if (rawTranscriptBox) {
-                        rawTranscriptBox.innerHTML = currentLiveTranscript.replace(/\n/g, "<br>");
-                        rawTranscriptBox.scrollTop = rawTranscriptBox.scrollHeight; 
-                    }
-
-                    if (interim_transcript.trim() !== '') { // If there's still interim, set pause timer
-                         userPauseTimer = setTimeout(() => {
-                            if (isRecording) {
-                                console.log("User pause, finalizing current transcript.");
-                                // The interim part is already part of currentLiveTranscript
-                                finalizedTranscriptForStaging = currentLiveTranscript.trim(); // Use the latest live transcript
-                                stageCurrentTranscriptIfNeeded(true); 
-                            }
-                        }, USER_PAUSE_TIMEOUT);
-                    }
-                };
-                
-
-                recognition.onerror = (event) => {
-                    console.error("Speech recognition error:", event.error, event.message);
-                    clearTimeout(maxUtteranceLengthTimer);
-                    clearTimeout(userPauseTimer);
-                    stopSpeechRecognition(); 
-                };
-
-                recognition.onend = () => {
-                    clearTimeout(maxUtteranceLengthTimer);
-                    clearTimeout(userPauseTimer);
-                    if (isRecording) { 
-                        console.log("Speech recognition ended.");
-                        finalizedTranscriptForStaging = currentLiveTranscript.trim(); // Ensure any last bit is staged
-                        stageCurrentTranscriptIfNeeded(true); 
-                        processTranslationQueue(); 
-                    } else {
-                        console.log("Speech recognition ended by user.");
-                    }
-                    
-                    isRecording = false; 
-                    if (startButton && startButton.disabled) {
-                        startButton.disabled = false;
-                        if (stopButton) stopButton.disabled = true;
-                        if (statusDot) {
-                            statusDot.classList.remove('status-recording');
-                            statusDot.classList.add('status-idle');
-                        }
-                        if (startButton.childNodes[2]) startButton.childNodes[2].nodeValue = ' Bắt đầu';
-                    }
-                };
-            } else {
-                 // ... (browser not supported) ...
+             if (!recognitionB) {
+                 recognitionB = setupRecognition('B', 'en-US', (transcript) => handleResult('B', transcript));
             }
+
+            isConversationActive = true;
+            recognitionA.start();
+            recognitionB.start();
+
+            mainControlBtn.classList.add('active');
+            mainControlBtn.innerHTML = '<i class="fas fa-stop mr-2"></i>Dừng Hội thoại';
         }
-        
-        // This function is called by timers or when a final result comes in
-        function finalizeAndStageCurrentSegment(force = false) {
-            // The "segment to stage" is whatever has been finalized in accumulatedFinalTranscript
-            // that hasn't been staged yet.
-            // Or, if forced (by timer/stop), it's the currentLiveTranscript.
-            let segmentToAttempt;
-            if (force) {
-                segmentToAttempt = currentLiveTranscript.trim();
-            } else {
-                segmentToAttempt = accumulatedFinalTranscript.trim();
-            }
 
-            if (segmentToAttempt && segmentToAttempt !== lastQueuedStagingSegment) {
-                console.log("Staging segment:", segmentToAttempt);
-                lastQueuedStagingSegment = segmentToAttempt; 
-
-                const placeholderId = `translating-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-                translationQueue.push({ 
-                    segmentToTranslate: segmentToAttempt, 
-                    placeholderId: placeholderId 
-                });
-                processTranslationQueue(); 
-
-                // Reset accumulatedFinalTranscript as it has been staged.
-                // currentLiveTranscript will be rebuilt from new interim/final results.
-                accumulatedFinalTranscript = ""; 
-                // Update currentLiveTranscript to remove the staged part if it was purely final
-                // This is tricky. For now, let's rely on onresult to rebuild currentLiveTranscript.
-                // If rawTranscriptBox is cleared here, it might look like data loss.
-                // Let's clear originalTextBox (staging box) instead.
-                if(originalTextBox) originalTextBox.innerHTML = '';
-
-
-                clearTimeout(maxUtteranceLengthTimer);
-                if (isRecording) { 
-                    maxUtteranceLengthTimer = setTimeout(finalizeAndStageCurrentSegment, MAX_UTTERANCE_LENGTH_MS);
-                }
-            } else if (isRecording) { // If nothing new to stage, just reset the max utterance timer
-                 clearTimeout(maxUtteranceLengthTimer);
-                 maxUtteranceLengthTimer = setTimeout(finalizeAndStageCurrentSegment, MAX_UTTERANCE_LENGTH_MS);
-            }
-        }
-        
-        // Renamed from stageCurrentTranscriptIfNeeded for clarity
-        const stageCurrentTranscriptIfNeeded = finalizeAndStageCurrentSegment;
-
-        
-        // Initial setup
-        updateLanguageLabels();
-        initializeSpeechRecognition(); 
-
-        sourceLangSelect.addEventListener('change', () => {
-            updateLanguageLabels();
-            initializeSpeechRecognition(); 
-            if (isRecording) stopSpeechRecognition(); 
-            showUIMessage(`Ngôn ngữ nói đổi thành: ${languageMap[sourceLangSelect.value]?.name}`, 2000);
-        });
-        targetLangSelect.addEventListener('change', () => {
-            updateLanguageLabels();
-            showUIMessage(`Ngôn ngữ dịch đổi thành: ${languageMap[targetLangSelect.value]?.name}`, 2000);
-        });
-        swapLangButton.addEventListener('click', () => {
-            const currentSource = sourceLangSelect.value;
-            const currentTarget = targetLangSelect.value;
+        function stopConversation() {
+            isConversationActive = false;
+            if (recognitionA) recognitionA.stop();
+            if (recognitionB) recognitionB.stop();
             
-            if (currentSource === "en-US" && currentTarget === "vi") {
-                sourceLangSelect.value = "vi-VN";
-                targetLangSelect.value = "en";
-            } else if (currentSource === "vi-VN" && currentTarget === "en") {
-                sourceLangSelect.value = "en-US";
-                targetLangSelect.value = "vi";
-            }
-            
-            updateLanguageLabels();
-            initializeSpeechRecognition();
-            if (isRecording) stopSpeechRecognition();
-            showUIMessage("Đã đảo chiều ngôn ngữ.", 2000);
-        });
+            panelA.classList.remove('listening');
+            panelB.classList.remove('listening');
+            statusA.className = 'status-dot status-idle';
+            statusB.className = 'status-dot status-idle';
 
-
-        if (startButton) {
-            startButton.addEventListener('click', () => {
-                if (!generativeAIModel) {
-                     showUIMessage("Dịch vụ AI chưa sẵn sàng. Vui lòng kiểm tra console để biết lỗi.", 5000);
-                     return;
-                }
-                if (recognition) {
-                    if (rawTranscriptBox) rawTranscriptBox.innerHTML = '';
-                    if (originalTextBox) originalTextBox.innerHTML = ''; 
-                    if (translatedTextBox) translatedTextBox.innerHTML = ''; 
-                    currentLiveTranscript = ""; 
-                    accumulatedFinalTranscript = "";
-                    lastQueuedStagingSegment = "";
-                    currentOriginalForSave = ""; 
-                    currentTranslatedForSave = ""; 
-                    translationQueue = []; 
-                    try {
-                        recognition.lang = sourceLangSelect.value; 
-                        recognition.start(); 
-                    } catch (e) {
-                        console.error("Error starting recognition:", e);
-                        if (e.name === 'InvalidStateError' && isRecording) {
-                            showUIMessage("Ghi âm đã được bắt đầu.", 2000);
-                        } else {
-                            showUIMessage("Không thể bắt đầu ghi âm. Lỗi: " + e.message, 5000);
-                            stopSpeechRecognition();
-                        }
-                    }
-                }
-            });
+            mainControlBtn.classList.remove('active');
+            mainControlBtn.innerHTML = '<i class="fas fa-play mr-2"></i>Bắt đầu Hội thoại';
         }
 
-        if (stopButton) {
-            stopButton.addEventListener('click', () => {
-                stopSpeechRecognition(); 
-                // On manual stop, ensure the very last live transcript is staged if not already
-                if (currentLiveTranscript.trim() !== accumulatedFinalTranscript.trim() && currentLiveTranscript.trim() !== "") {
-                     accumulatedFinalTranscript = currentLiveTranscript.trim(); // Consider the whole live as final
-                }
-                stageCurrentTranscriptIfNeeded(true); 
-                processTranslationQueue(); 
-                showUIMessage("Đã dừng ghi âm.", 2000);
-            });
-        }
-
-        function stopSpeechRecognition() { 
-            clearTimeout(maxUtteranceLengthTimer); 
-            clearTimeout(userPauseTimer);
-            if (recognition && isRecording) {
-                recognition.stop(); 
-            }
-            isRecording = false; 
-        }
-        
-        let currentOriginalForSave = ""; 
-        let currentTranslatedForSave = ""; 
-
-        async function sendToTranslateWithFirebaseAI(textSegment, placeholderId) {
-            if (!textSegment || textSegment.trim() === '') {
-                 const el = document.getElementById(placeholderId);
-                 if(el) el.remove(); 
-                 return;
-            }
-            if (!generativeAIModel) {
-                showUIMessage("Lỗi: Dịch vụ AI chưa sẵn sàng để dịch.", 5000);
-                const errorP = document.getElementById(placeholderId);
-                if (errorP) errorP.innerHTML = `<span class="text-red-500">[Lỗi AI Service]</span>`;
-                return;
-            }
-            
-            const targetElement = document.getElementById(placeholderId); 
-            if (targetElement) { 
-                 targetElement.innerHTML = `<span class="text-gray-400">Đang dịch: "${textSegment}"<span class="spinner"></span></span>`;
-            } else { 
-                const tempP = document.createElement('p');
-                tempP.id = placeholderId; 
-                tempP.innerHTML = `<span class="text-gray-400">Đang dịch: "${textSegment}"<span class="spinner"></span></span>`;
-                if (translatedTextBox) translatedTextBox.insertBefore(tempP, translatedTextBox.firstChild);
-            }
-
-            try {
-                const sourceLangForPrompt = languageMap[sourceLangSelect.value]?.geminiName || "auto";
-                const targetLangForPrompt = languageMap[targetLangSelect.value]?.geminiName || "Vietnamese";
-                
-                const prompt = `Provide a direct translation of the following ${sourceLangForPrompt} text to ${targetLangForPrompt}, without explanations or additional context: "${textSegment}"`;
-                
-                console.log("Sending prompt to Gemini:", prompt);
-                
-                const streamResult = await generativeAIModel.generateContentStream(prompt);
-
-                let accumulatedTranslatedTextForSegment = "";
-                let firstChunk = true;
-                const liveTargetElement = document.getElementById(placeholderId); 
-
-                for await (const item of streamResult.stream) {
-                    const chunkText = item.text();
-                    console.log("Stream chunk:", chunkText);
-                    accumulatedTranslatedTextForSegment += chunkText;
-                    
-                    if (liveTargetElement) {
-                        if (firstChunk) {
-                            liveTargetElement.innerHTML = `<span class="text-sm font-semibold text-blue-600">${chunkText.trim()}</span>`;
-                            firstChunk = false;
-                        } else {
-                            liveTargetElement.querySelector('span.text-blue-600').textContent += chunkText;
-                        }
-                    } 
-                }
-                
-                if (accumulatedTranslatedTextForSegment.trim()) {
-                    currentOriginalForSave = textSegment + (currentOriginalForSave ? "\n" + currentOriginalForSave : "");
-                    currentTranslatedForSave = accumulatedTranslatedTextForSegment.trim() + (currentTranslatedForSave ? "\n" + currentTranslatedForSave : ""); 
-                }
-
-
-                if(auth.currentUser && saveTranslationButton && currentOriginalForSave.trim() !== "" && currentTranslatedForSave.trim() !== "") {
-                    saveTranslationButton.style.display = 'inline-block';
-                }
-                if (accumulatedTranslatedTextForSegment.trim() === "" && liveTargetElement) { 
-                     liveTargetElement.innerHTML = `<span class="text-red-500">[Không nhận được bản dịch]</span>`;
-                }
-
-            } catch (error) {
-                console.error("Lỗi khi dịch (Firebase AI Logic Stream):", error);
-                showUIMessage("Lỗi khi dịch (AI Stream): " + error.message, 7000);
-                const errorTargetElement = document.getElementById(placeholderId);
-                if (errorTargetElement) {
-                    errorTargetElement.innerHTML = `<span class="text-red-500">[Lỗi dịch (AI Stream): ${error.message}]</span>`;
-                } 
-            }
-        }
-
-        // --- UI Action Buttons ---
-        if(clearOriginalTextBtn) {
-             clearOriginalTextBtn.addEventListener('click', () => {
-                if(originalTextBox) originalTextBox.innerHTML = '';
-                showUIMessage("Đã xóa văn bản chuẩn bị dịch.", 1500);
-            });
-        }
-        if(clearRawTranscriptBtn) { 
-            clearRawTranscriptBtn.addEventListener('click', () => {
-                if(rawTranscriptBox) rawTranscriptBox.innerHTML = '';
-                currentLiveTranscript = ""; 
-                finalizedTranscriptForStaging = "";
-                lastQueuedStagingSegment = "";
-                showUIMessage("Đã xóa lời nói thô.", 1500);
-            });
-        }
-        if(clearTranslatedTextBtn) {
-            clearTranslatedTextBtn.addEventListener('click', () => {
-                if(translatedTextBox) translatedTextBox.innerHTML = '';
-                currentTranslatedForSave = ""; 
-                if(saveTranslationButton) saveTranslationButton.style.display = 'none';
-                showUIMessage("Đã xóa bản dịch.", 1500);
-            });
-        }
-        if(copyTranslatedTextBtn) {
-            copyTranslatedTextBtn.addEventListener('click', () => {
-                if(translatedTextBox && translatedTextBox.textContent.trim() !== "") {
-                    const textToCopy = Array.from(translatedTextBox.querySelectorAll('p span.text-blue-600'))
-                                                .map(span => span.textContent.trim())
-                                                .join('\n'); 
-
-                        if (textToCopy) {
-                            navigator.clipboard.writeText(textToCopy)
-                                .then(() => showUIMessage("Đã sao chép bản dịch!", 1500))
-                                .catch(err => {
-                                    console.error('Lỗi sao chép: ', err);
-                                    try {
-                                        const textArea = document.createElement("textarea");
-                                        textArea.value = textToCopy;
-                                        document.body.appendChild(textArea);
-                                        textArea.focus();
-                                        textArea.select();
-                                        document.execCommand('copy');
-                                        document.body.removeChild(textArea);
-                                        showUIMessage("Đã sao chép bản dịch! (fallback)", 1500);
-                                    } catch (fallbackErr) {
-                                        console.error('Lỗi sao chép (fallback): ', fallbackErr);
-                                        showUIMessage("Lỗi khi sao chép.", 2000);
-                                    }
-                                });
-                        } else {
-                             showUIMessage("Không có nội dung dịch để sao chép.", 1500);
-                        }
-                } else {
-                    showUIMessage("Không có gì để sao chép.", 1500);
-                }
-            });
-        }
-
-
-        // Firebase Auth
-        if (registerButton) {
-            registerButton.addEventListener('click', async () => {
-                const email = emailInput.value;
-                const password = passwordInput.value;
-                if (!email || !password) {
-                    showUIMessage("Vui lòng nhập email và mật khẩu."); return;
-                }
-                try {
-                    await createUserWithEmailAndPassword(auth, email, password);
-                    showUIMessage("Đăng ký thành công!");
-                    emailInput.value = ''; passwordInput.value = '';
-                } catch (error) {
-                    showUIMessage("Lỗi đăng ký: " + error.message, 5000);
-                }
-            });
-        }
-
-        if (loginButton) {
-            loginButton.addEventListener('click', async () => {
-                const email = emailInput.value;
-                const password = passwordInput.value;
-                if (!email || !password) {
-                    showUIMessage("Vui lòng nhập email và mật khẩu."); return;
-                }
-                try {
-                    await signInWithEmailAndPassword(auth, email, password);
-                    showUIMessage("Đăng nhập thành công!");
-                    emailInput.value = ''; passwordInput.value = '';
-                } catch (error) {
-                    showUIMessage("Lỗi đăng nhập: " + error.message, 5000);
-                }
-            });
-        }
-
-        if (logoutButton) {
-            logoutButton.addEventListener('click', async () => {
-                try {
-                    await signOut(auth);
-                    showUIMessage("Đã đăng xuất.");
-                } catch (error) {
-                    showUIMessage("Lỗi đăng xuất: " + error.message, 5000);
-                }
-            });
-        }
-        
-        let unsubscribeHistory = null; 
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                if (authForm) authForm.style.display = 'none';
-                if (userInfo) userInfo.style.display = 'block';
-                if (userEmailDisplay) userEmailDisplay.textContent = `Chào, ${user.email}`;
-                if (authStatus) authStatus.textContent = `Đã đăng nhập với tư cách ${user.email}`;
-                if(currentOriginalForSave && currentTranslatedForSave && saveTranslationButton) { 
-                    saveTranslationButton.style.display = 'inline-block';
-                }
-                if (historyContainer) historyContainer.style.display = 'block';
-                loadTranslationHistory(user.uid); 
+        // --- Event Listener ---
+        mainControlBtn.addEventListener('click', () => {
+            if (isConversationActive) {
+                stopConversation();
             } else {
-                if (authForm) authForm.style.display = 'block';
-                if (userInfo) userInfo.style.display = 'none';
-                if (userEmailDisplay) userEmailDisplay.textContent = '';
-                if (authStatus) authStatus.textContent = 'Chưa đăng nhập.';
-                if (saveTranslationButton) saveTranslationButton.style.display = 'none'; 
-                if (historyContainer) historyContainer.style.display = 'none';
-                if (translationHistoryDiv) translationHistoryDiv.innerHTML = '<p class="text-center text-gray-500 text-sm">Đăng nhập để xem lịch sử.</p>';
-                if (unsubscribeHistory) {
-                    unsubscribeHistory(); 
-                    unsubscribeHistory = null;
-                }
+                startConversation();
             }
         });
 
-        // Firestore - Save Translation
-        if (saveTranslationButton) {
-            saveTranslationButton.addEventListener('click', async () => {
-                const user = auth.currentUser;
-                if (!user) {
-                    showUIMessage("Bạn cần đăng nhập để lưu bản dịch.", 3000); return;
-                }
-                if (!currentOriginalForSave || !currentTranslatedForSave) {
-                    showUIMessage("Không có bản dịch nào để lưu.", 3000); return;
-                }
-                try {
-                    await addDoc(collection(db, "translations"), {
-                        userId: user.uid,
-                        originalText: currentOriginalForSave, 
-                        translatedText: currentTranslatedForSave, 
-                        sourceLang: sourceLangSelect.value, 
-                        targetLang: targetLangSelect.value, 
-                        createdAt: serverTimestamp() 
-                    });
-                    showUIMessage("Đã lưu bản dịch thành công!", 3000);
-                    currentOriginalForSave = ""; 
-                    currentTranslatedForSave = "";
-                    saveTranslationButton.style.display = 'none';
-                } catch (e) {
-                    showUIMessage("Lỗi khi lưu bản dịch: " + e.message, 5000);
-                }
-            });
-        }
-
-        // Firestore - Load Translation History
-        async function loadTranslationHistory(userId) {
-            if (!translationHistoryDiv) return;
-            translationHistoryDiv.innerHTML = '<p class="text-center text-gray-500 text-sm">Đang tải lịch sử...</p>';
-
-            const translationsRef = collection(db, "translations");
-            const q = query(translationsRef, 
-                            where("userId", "==", userId), 
-                            orderBy("createdAt", "desc"), 
-                            limit(10));
-            
-            if (unsubscribeHistory) {
-                unsubscribeHistory();
-            }
-
-            unsubscribeHistory = onSnapshot(q, (querySnapshot) => {
-                if (querySnapshot.empty) {
-                    translationHistoryDiv.innerHTML = '<p class="text-center text-gray-500 text-sm">Chưa có lịch sử nào.</p>';
-                    return;
-                }
-                translationHistoryDiv.innerHTML = ''; 
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const historyItem = document.createElement('div');
-                    historyItem.className = 'history-item';
-                    
-                    const sourceLangDisplay = languageMap[data.sourceLang]?.name || data.sourceLang;
-                    const targetLangDisplay = languageMap[data.targetLang]?.name || data.targetLang;
-
-                    const originalP = document.createElement('p');
-                    originalP.className = 'original';
-                    originalP.textContent = `Gốc (${sourceLangDisplay}): ${data.originalText}`;
-                    
-                    const translatedP = document.createElement('p');
-                    translatedP.className = 'translated';
-                    translatedP.textContent = `Dịch (${targetLangDisplay}): ${data.translatedText}`;
-                    
-                    const timestampP = document.createElement('p');
-                    timestampP.className = 'timestamp';
-                    timestampP.textContent = data.createdAt ? new Date(data.createdAt.seconds * 1000).toLocaleString('vi-VN') : 'Không có thời gian';
-                    
-                    historyItem.appendChild(originalP);
-                    historyItem.appendChild(translatedP);
-                    historyItem.appendChild(timestampP);
-                    translationHistoryDiv.insertBefore(historyItem, translationHistoryDiv.firstChild); 
-                });
-            }, (error) => {
-                console.error("Lỗi khi tải lịch sử: ", error);
-                translationHistoryDiv.innerHTML = '<p class="text-center text-red-500 text-sm">Lỗi khi tải lịch sử.</p>';
-                showUIMessage("Lỗi tải lịch sử: " + error.message, 5000);
-            });
-        }
     </script>
 </body>
 </html>
